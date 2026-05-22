@@ -1,14 +1,19 @@
+import logging
+
 from recognizer.cad_engine.geometry import dxf_get, entity_handle, point_to_list
 from recognizer.cad_engine.text_cleaning import clean_cad_text
+
+logger = logging.getLogger(__name__)
 
 
 def extract_insert(entity) -> dict | None:
     try:
-        attribs = []
+        attribs_attr = getattr(entity, "attribs", None)
         try:
-            attrib_entities = list(entity.attribs)
-        except Exception:
+            attrib_entities = list(attribs_attr) if attribs_attr is not None else []
+        except TypeError:
             attrib_entities = []
+        attribs = []
         for attrib in attrib_entities:
             parsed_attrib = extract_attrib(attrib)
             if parsed_attrib is not None:
@@ -23,7 +28,8 @@ def extract_insert(entity) -> dict | None:
             "handle": entity_handle(entity),
             "attribs": attribs,
         }
-    except Exception:
+    except (AttributeError, TypeError, ValueError) as exc:
+        logger.debug("extract_insert skipped entity %r: %s", entity, exc)
         return None
 
 
@@ -42,5 +48,6 @@ def extract_attrib(entity) -> dict | None:
             "height": float(dxf_get(entity, "height", 0) or 0),
             "handle": entity_handle(entity),
         }
-    except Exception:
+    except (AttributeError, TypeError, ValueError) as exc:
+        logger.debug("extract_attrib skipped entity %r: %s", entity, exc)
         return None

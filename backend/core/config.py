@@ -1,25 +1,53 @@
 from pathlib import Path
 
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Settings:
-    app_name = "工程图纸智能台账识别系统"
-    APP_VERSION = "v0.6.2-rule-fix"
-    version = APP_VERSION
 
-    root_dir = Path(__file__).resolve().parents[2]
-    frontend_dist_dir = root_dir / "frontend" / "dist"
-    app_data_dir = root_dir / "app_data"
-    projects_dir = app_data_dir / "projects"
-    database_dir = app_data_dir / "database"
-    logs_dir = app_data_dir / "logs"
-    temp_dir = app_data_dir / "temp"
-    database_path = database_dir / "app.db"
-    log_path = logs_dir / "app.log"
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
-    cors_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="CADFENXI_",
+        env_file=ROOT_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    app_name: str = "工程图纸智能台账识别系统"
+    app_version: str = "v0.6.2-rule-fix"
+
+    root_dir: Path = ROOT_DIR
+    frontend_dist_dir: Path = ROOT_DIR / "frontend" / "dist"
+    app_data_dir: Path = ROOT_DIR / "app_data"
+    projects_dir: Path = ROOT_DIR / "app_data" / "projects"
+    database_dir: Path = ROOT_DIR / "app_data" / "database"
+    logs_dir: Path = ROOT_DIR / "app_data" / "logs"
+    temp_dir: Path = ROOT_DIR / "app_data" / "temp"
+    database_path: Path = ROOT_DIR / "app_data" / "database" / "app.db"
+    log_path: Path = ROOT_DIR / "app_data" / "logs" / "app.log"
+
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+    )
+
+    upload_max_bytes: int = 200 * 1024 * 1024
+    convert_timeout_seconds: int = 120
+    converter_log_limit: int = 5000
+    preview_max_width: int = 1800
+    thumbnail_max_width: int = 320
+
+    @property
+    def version(self) -> str:
+        return self.app_version
+
+    @property
+    def APP_VERSION(self) -> str:
+        return self.app_version
 
     @property
     def storage_dirs(self) -> tuple[Path, ...]:

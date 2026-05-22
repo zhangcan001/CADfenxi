@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Callable
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -29,6 +30,12 @@ from backend.services import (
     fusion_service,
 )
 from recognizer.cad_engine.cad_json_writer import cad_parse_output_path, read_cad_json
+
+
+StepHandler = Callable[
+    [Session, int, list[DrawingFile], CadPipelineRequest],
+    tuple[CadPipelineStepResult, bool],
+]
 
 
 def run_cad_pipeline(db: Session, batch_id: int, payload: CadPipelineRequest) -> CadPipelineResponse:
@@ -86,15 +93,42 @@ def run_step(
     step_name: CadPipelineStepName,
     payload: CadPipelineRequest,
 ) -> tuple[CadPipelineStepResult, bool]:
-    if step_name == "convert_dwg":
-        return run_convert_step(db, files, payload)
-    if step_name == "prepare_dxf_sheet":
-        return run_prepare_step(db, files, payload)
-    if step_name == "parse_dxf":
-        return run_parse_step(db, files, payload)
-    if step_name == "generate_candidates":
-        return run_candidate_step(db, batch_id, payload)
+    handler = STEP_HANDLERS.get(step_name)
+    if handler is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "CAD_PIPELINE_STEP_UNKNOWN", "message": f"未知的流水线步骤：{step_name}"},
+        )
+    return handler(db, batch_id, files, payload)
+
+
+def _convert_handler(db, batch_id, files, payload):
+    return run_convert_step(db, files, payload)
+
+
+def _prepare_handler(db, batch_id, files, payload):
+    return run_prepare_step(db, files, payload)
+
+
+def _parse_handler(db, batch_id, files, payload):
+    return run_parse_step(db, files, payload)
+
+
+def _candidate_handler(db, batch_id, files, payload):
+    return run_candidate_step(db, batch_id, payload)
+
+
+def _fusion_handler(db, batch_id, files, payload):
     return run_fusion_step(db, batch_id, payload)
+
+
+STEP_HANDLERS: dict[CadPipelineStepName, StepHandler] = {
+    "convert_dwg": _convert_handler,
+    "prepare_dxf_sheet": _prepare_handler,
+    "parse_dxf": _parse_handler,
+    "generate_candidates": _candidate_handler,
+    "fuse_fields": _fusion_handler,
+}
 
 
 def run_convert_step(
@@ -359,10 +393,7 @@ def run_candidate_step(
     skipped_count = 0
     executed = False
 
-    for sheet in sheets:
-        drawing_file = db.get(DrawingFile, sheet.file_id)
-        if drawing_file is None:
-            continue
+    for sheet, drawing_file in sheets:
         if payload.skip_completed and has_candidates(db, sheet.id):
             skipped_count += 1
             items.append(item_for_file(drawing_file, "skipped", sheet_id=sheet.id))
@@ -445,10 +476,7 @@ def run_fusion_step(
     skipped_count = 0
     executed = False
 
-    for sheet in sheets:
-        drawing_file = db.get(DrawingFile, sheet.file_id)
-        if drawing_file is None:
-            continue
+    for sheet, drawing_file in sheets:
         if payload.skip_completed and has_field_values(db, sheet.id):
             skipped_count += 1
             items.append(item_for_file(drawing_file, "skipped", sheet_id=sheet.id))
@@ -650,14 +678,14 @@ def sheets_for_batch(db: Session, batch_id: int) -> list[DrawingSheet]:
     ).all()
 
 
-def dxf_sheets_for_batch(db: Session, batch_id: int) -> list[DrawingSheet]:
-    rows = sheets_for_batch(db, batch_id)
-    result: list[DrawingSheet] = []
-    for sheet in rows:
-        drawing_file = db.get(DrawingFile, sheet.file_id)
-        if drawing_file is not None and cad_sheet_service.is_dxf_file(drawing_file):
-            result.append(sheet)
-    return result
+def dxf_sheets_for_batch(db: Session, batch_id: int) -> list[tuple[DrawingSheet, DrawingFile]]:
+    rows = db.execute(
+        select(DrawingSheet, DrawingFile)
+        .join(DrawingFile, DrawingFile.id == DrawingSheet.file_id)
+        .where(DrawingSheet.batch_id == batch_id)
+        .order_by(DrawingSheet.id.asc())
+    ).all()
+    return [(sheet, drawing_file) for sheet, drawing_file in rows if cad_sheet_service.is_dxf_file(drawing_file)]
 
 
 def sheet_for_file(db: Session, file_id: int) -> DrawingSheet | None:

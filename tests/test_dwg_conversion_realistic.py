@@ -235,7 +235,7 @@ def test_non_zero_converter_returns_failed(tmp_path):
 def test_timeout_returns_failed(monkeypatch, tmp_path):
     clear_converter_tables()
     converter = realistic_converter(tmp_path, "sleep")
-    monkeypatch.setattr("backend.services.cad_converter_service.CONVERT_TIMEOUT_SECONDS", 1)
+    monkeypatch.setattr("backend.core.config.settings.convert_timeout_seconds", 1)
     with TestClient(app) as client:
         create_converter_setting(client, converter)
         project_id = create_project(client)

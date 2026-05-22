@@ -20,7 +20,7 @@ def test_user_fix_package_version_and_docs_exist():
 
     assert package_dir.name == package_name(USER_FIX_VERSION)
     assert (package_dir / "README_本地使用说明.md").is_file()
-    assert (package_dir / "docs" / "PORTABLE_USER_TEST_ISSUES_v0.4.4.md").is_file()
+    assert (package_dir / "docs" / "archive" / "PORTABLE_USER_TEST_ISSUES_v0.4.4.md").is_file()
     assert USER_FIX_VERSION in (package_dir / "package_info.txt").read_text(encoding="utf-8")
     assert summary.integrity_ok is True
 

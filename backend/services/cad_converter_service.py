@@ -26,8 +26,6 @@ from backend.schemas.cad_converter import (
 )
 from backend.services import file_storage_service
 
-CONVERT_TIMEOUT_SECONDS = 120
-LOG_LIMIT = 5000
 AMBIGUOUS_OUTPUT_CODE = "DWG_CONVERT_OUTPUT_AMBIGUOUS"
 
 
@@ -47,7 +45,9 @@ def create_converter_setting(
     db: Session,
     payload: ConverterSettingCreate,
 ) -> ConverterSettingRead:
-    setting = ConverterSetting(**payload.model_dump())
+    data = payload.model_dump()
+    data["converter_exe_path"] = validate_converter_path_string(data["converter_exe_path"])
+    setting = ConverterSetting(**data)
     db.add(setting)
     db.commit()
     db.refresh(setting)
@@ -60,11 +60,24 @@ def update_converter_setting(
     payload: ConverterSettingUpdate,
 ) -> ConverterSettingRead:
     setting = get_setting_or_404(db, setting_id)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "converter_exe_path" in updates and updates["converter_exe_path"] is not None:
+        updates["converter_exe_path"] = validate_converter_path_string(updates["converter_exe_path"])
+    for key, value in updates.items():
         setattr(setting, key, value)
     db.commit()
     db.refresh(setting)
     return ConverterSettingRead.model_validate(setting)
+
+
+def validate_converter_path_string(raw_path: str) -> str:
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        raise_converter_error(
+            "CONVERTER_PATH_INVALID",
+            "转换工具路径必须为绝对路径。",
+        )
+    return str(path)
 
 
 def check_converter_setting(db: Session, setting_id: int) -> ConverterCheckResult:
@@ -197,7 +210,7 @@ def convert_dwg_file(db: Session, file_id: int) -> DwgConvertResult:
             shell=False,
             capture_output=True,
             text=True,
-            timeout=CONVERT_TIMEOUT_SECONDS,
+            timeout=settings.convert_timeout_seconds,
         )
         run.stdout_log = clip_log(result.stdout)
         run.stderr_log = clip_log(result.stderr)
@@ -499,7 +512,6 @@ def ambiguous_match(candidates: list[Path], message: str) -> ConvertedOutputMatc
         warning_code=AMBIGUOUS_OUTPUT_CODE,
         warning_message=f"{message}候选：{names}",
     )
-    return None
 
 
 def unique_target_path(converted_dir: Path, drawing_file: DrawingFile) -> Path:
@@ -572,7 +584,7 @@ def relative_to_root(path: Path) -> str:
 
 
 def clip_log(value: str | None) -> str:
-    return (value or "")[:LOG_LIMIT]
+    return (value or "")[: settings.converter_log_limit]
 
 
 def raise_converter_error(

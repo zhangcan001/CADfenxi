@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
@@ -11,6 +12,8 @@ from backend.schemas.drawing_file import DrawingFileRead, ImportedFileRead
 from backend.schemas.import_batch import ImportBatchRead
 from backend.services import file_storage_service
 from backend.services.project_service import get_project_or_404
+
+logger = logging.getLogger(__name__)
 
 
 def create_import_batch(
@@ -84,7 +87,12 @@ def create_import_batch(
         db.commit()
 
         return batch_to_read(batch, imported_files)
+    except HTTPException:
+        db.rollback()
+        file_storage_service.remove_saved_files(saved_paths)
+        raise
     except Exception:
+        logger.exception("Import batch creation failed project_id=%s", project_id)
         db.rollback()
         file_storage_service.remove_saved_files(saved_paths)
         raise

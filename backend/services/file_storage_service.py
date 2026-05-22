@@ -10,6 +10,7 @@ from backend.core.config import settings
 
 SAFE_NAME_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
 SUPPORTED_UPLOAD_EXTENSIONS = {".pdf": "pdf", ".dxf": "dxf", ".dwg": "dwg"}
+UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
 def project_original_dir(project_id: int) -> Path:
@@ -70,11 +71,21 @@ def save_drawing_file(project_id: int, file: UploadFile, file_ext: str) -> tuple
     target = directory / f"{uuid4().hex}_{safe_filename(file.filename or f'drawing{file_ext}', file_ext)}"
     digest = hashlib.sha256()
     size = 0
+    max_bytes = settings.upload_max_bytes
 
     try:
         with target.open("wb") as output:
-            while chunk := file.file.read(1024 * 1024):
+            while chunk := file.file.read(UPLOAD_CHUNK_BYTES):
                 size += len(chunk)
+                if max_bytes and size > max_bytes:
+                    target.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail={
+                            "error_code": "FILE_TOO_LARGE",
+                            "message": f"文件超过最大允许大小（{max_bytes // (1024 * 1024)} MB）。",
+                        },
+                    )
                 digest.update(chunk)
                 output.write(chunk)
     except OSError as exc:

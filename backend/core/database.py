@@ -41,6 +41,9 @@ def init_database() -> None:
 
 
 def ensure_lightweight_migrations() -> None:
+    # Deprecated: new schema changes should use Alembic (see ``alembic.ini`` and
+    # ``backend/migrations/``). This function is kept for compatibility with
+    # existing local databases that have not yet had Alembic stamped on them.
     with sqlite3.connect(settings.database_path) as connection:
         file_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(drawing_files);").fetchall()

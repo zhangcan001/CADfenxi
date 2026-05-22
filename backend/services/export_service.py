@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,8 @@ from backend.schemas.export import ExportExcelRequest, ExportExcelResult, Export
 from backend.services import excel_export_service, export_check_service
 
 EXPORT_TYPE = "excel_ledger"
+
+logger = logging.getLogger(__name__)
 
 
 def export_project_excel(
@@ -56,6 +59,7 @@ def export_project_excel(
         db.commit()
         db.refresh(record)
     except Exception:
+        logger.exception("Excel export failed project_id=%s output=%s", project_id, output_path)
         if output_path.exists():
             output_path.unlink(missing_ok=True)
         raise

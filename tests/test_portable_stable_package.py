@@ -20,8 +20,8 @@ def test_stable_package_structure_and_docs():
     assert (package_dir / "README_本地使用说明.md").is_file()
     assert (package_dir / "README.md").is_file()
     assert (package_dir / "RELEASE_NOTES.md").is_file()
-    assert (package_dir / "docs" / "RELEASE_CHECKLIST_v0.4.5-portable-stable.md").is_file()
-    assert (package_dir / "docs" / "FINAL_ACCEPTANCE_v0.4.5-portable-stable.md").is_file()
+    assert (package_dir / "docs" / "archive" / "RELEASE_CHECKLIST_v0.4.5-portable-stable.md").is_file()
+    assert (package_dir / "docs" / "archive" / "FINAL_ACCEPTANCE_v0.4.5-portable-stable.md").is_file()
     assert (package_dir / "start.bat").is_file()
     assert (package_dir / "stop.bat").is_file()
     assert (package_dir / "check_env.bat").is_file()
@@ -66,8 +66,8 @@ def test_stable_user_docs_cover_backup_migration_troubleshooting_and_dwg():
 
     local_readme = (package_dir / "README_本地使用说明.md").read_text(encoding="utf-8")
     release_notes = (package_dir / "RELEASE_NOTES.md").read_text(encoding="utf-8")
-    checklist = (package_dir / "docs" / "RELEASE_CHECKLIST_v0.4.5-portable-stable.md").read_text(encoding="utf-8")
-    acceptance = (package_dir / "docs" / "FINAL_ACCEPTANCE_v0.4.5-portable-stable.md").read_text(encoding="utf-8")
+    checklist = (package_dir / "docs" / "archive" / "RELEASE_CHECKLIST_v0.4.5-portable-stable.md").read_text(encoding="utf-8")
+    acceptance = (package_dir / "docs" / "archive" / "FINAL_ACCEPTANCE_v0.4.5-portable-stable.md").read_text(encoding="utf-8")
 
     for keyword in [
         "Windows 10 / Windows 11",

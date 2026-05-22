@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import date
+import logging
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, select
@@ -25,6 +26,8 @@ from recognizer.cad_engine.cad_json_writer import cad_parse_output_path, read_ca
 from recognizer.fusion.field_fusion import choose_field_value, value_key
 
 CORE_FIELDS = ["drawing_no", "drawing_name", "discipline", "version", "issue_date"]
+
+logger = logging.getLogger(__name__)
 
 
 def fuse_fields_for_sheet(db: Session, sheet_id: int) -> SheetFusionResult:
@@ -213,9 +216,14 @@ def fuse_fields_for_batch(db: Session, batch_id: int) -> BatchFusionResult:
     for sheet in sheets:
         try:
             items.append(fuse_fields_for_sheet(db, sheet.id))
+        except HTTPException as exc:
+            db.rollback()
+            failed_count += 1
+            logger.warning("Sheet fusion HTTP error sheet_id=%s detail=%s", sheet.id, exc.detail)
         except Exception:
             db.rollback()
             failed_count += 1
+            logger.exception("Sheet fusion failed sheet_id=%s", sheet.id)
     return BatchFusionResult(
         batch_id=batch_id,
         total_count=len(sheets),
@@ -255,7 +263,8 @@ def cad_parse_empty(sheet: DrawingSheet) -> bool:
         return False
     try:
         counts = read_cad_json(output_path).get("counts", {})
-    except Exception:
+    except (OSError, ValueError) as exc:
+        logger.warning("Failed reading CAD parse output sheet_id=%s: %s", sheet.id, exc)
         return False
     return (
         int(counts.get("text_count", 0) or 0) == 0
@@ -270,7 +279,8 @@ def cad_has_text_without_attribs(sheet: DrawingSheet) -> bool:
         return False
     try:
         counts = read_cad_json(output_path).get("counts", {})
-    except Exception:
+    except (OSError, ValueError) as exc:
+        logger.warning("Failed reading CAD parse output sheet_id=%s: %s", sheet.id, exc)
         return False
     return (
         int(counts.get("attrib_count", 0) or 0) == 0

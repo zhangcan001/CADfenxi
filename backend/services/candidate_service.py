@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from fastapi import HTTPException, status
@@ -20,6 +21,8 @@ from backend.services import cad_candidate_service, cad_sheet_service
 from recognizer.filename_parser.parser import parse_filename
 from recognizer.rules.discipline_rules import generate_discipline_candidates
 from recognizer.text_parser.parser import parse_text
+
+logger = logging.getLogger(__name__)
 
 MACHINE_SOURCES = [
     "filename",
@@ -107,9 +110,14 @@ def generate_candidates_for_batch(db: Session, batch_id: int) -> BatchCandidateG
     for sheet in sheets:
         try:
             items.append(generate_candidates_for_sheet(db, sheet.id))
+        except HTTPException as exc:
+            db.rollback()
+            failed_count += 1
+            logger.warning("Candidate generation HTTP error sheet_id=%s detail=%s", sheet.id, exc.detail)
         except Exception:
             db.rollback()
             failed_count += 1
+            logger.exception("Candidate generation failed sheet_id=%s", sheet.id)
 
     return BatchCandidateGenerateResult(
         batch_id=batch_id,

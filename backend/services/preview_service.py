@@ -4,9 +4,6 @@ import pymupdf as fitz
 
 from backend.core.config import settings
 
-PREVIEW_MAX_WIDTH = 1800
-THUMBNAIL_MAX_WIDTH = 320
-
 
 def preview_dir(project_id: int) -> Path:
     return settings.projects_dir / f"project_{project_id}" / "previews"
@@ -33,11 +30,11 @@ def render_page(
     preview_path = previews / f"sheet_{sheet_id}.png"
     thumbnail_path = thumbnails / f"sheet_{sheet_id}.jpg"
 
-    preview_pixmap = page.get_pixmap(matrix=_matrix_for_width(page, PREVIEW_MAX_WIDTH), alpha=False)
+    preview_pixmap = page.get_pixmap(matrix=_matrix_for_width(page, settings.preview_max_width), alpha=False)
     preview_pixmap.save(preview_path)
 
     thumbnail_pixmap = page.get_pixmap(
-        matrix=_matrix_for_width(page, THUMBNAIL_MAX_WIDTH), alpha=False
+        matrix=_matrix_for_width(page, settings.thumbnail_max_width), alpha=False
     )
     thumbnail_pixmap.save(thumbnail_path)
 

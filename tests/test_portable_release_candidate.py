@@ -20,7 +20,7 @@ def test_release_candidate_package_structure_and_version():
     assert (package_dir / "check_env.bat").is_file()
     assert (package_dir / "README_本地使用说明.md").is_file()
     assert (package_dir / "RELEASE_NOTES.md").is_file()
-    assert (package_dir / "docs" / "RELEASE_CHECKLIST_v0.4.3-portable-rc.md").is_file()
+    assert (package_dir / "docs" / "archive" / "RELEASE_CHECKLIST_v0.4.3-portable-rc.md").is_file()
     assert (package_dir / "frontend" / "dist" / "index.html").is_file()
     assert (package_dir / "backend" / "main.py").is_file()
     assert (package_dir / "recognizer").is_dir()
