@@ -5,7 +5,8 @@ export type CadPipelineStep =
   | "prepare_dxf_sheet"
   | "parse_dxf"
   | "generate_candidates"
-  | "fuse_fields";
+  | "fuse_fields"
+  | "generate_cad_preview";
 
 export type CadPipelineRequest = {
   steps: CadPipelineStep[];
@@ -29,6 +30,7 @@ export type CadPipelineStepResult = {
   success_count: number;
   failed_count: number;
   skipped_count: number;
+  warning_count: number;
   items: Array<{
     file_id: number | null;
     sheet_id: number | null;
@@ -61,6 +63,10 @@ export type CadPipelineResponse = {
     candidate_failed: number;
     fusion_success: number;
     fusion_failed: number;
+    cad_preview_success: number;
+    cad_preview_failed: number;
+    cad_preview_skipped: number;
+    cad_preview_warning_count: number;
     skipped_count: number;
     error_count: number;
     warning_count: number;

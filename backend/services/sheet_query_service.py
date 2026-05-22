@@ -206,6 +206,7 @@ def sheet_item(
             "info_count": info_count,
             "thumbnail_url": f"/api/sheets/{sheet.id}/thumbnail" if sheet.thumbnail_path else None,
             "preview_url": f"/api/sheets/{sheet.id}/preview" if sheet.preview_path else None,
+            "cad_preview_url": f"/api/sheets/{sheet.id}/cad-preview-image" if sheet.cad_preview_path else None,
             "original_file_name": original_name,
             "source_format": source_format,
         }

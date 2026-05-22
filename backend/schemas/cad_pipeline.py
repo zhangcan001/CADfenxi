@@ -9,6 +9,7 @@ CadPipelineStepName = Literal[
     "parse_dxf",
     "generate_candidates",
     "fuse_fields",
+    "generate_cad_preview",
 ]
 
 CadPipelineStatus = Literal["success", "completed_with_errors", "failed", "skipped"]
@@ -53,6 +54,7 @@ class CadPipelineStepResult(BaseModel):
     success_count: int = 0
     failed_count: int = 0
     skipped_count: int = 0
+    warning_count: int = 0
     items: list[CadPipelineItem] = Field(default_factory=list)
     errors: list[CadPipelineError] = Field(default_factory=list)
 
@@ -75,6 +77,10 @@ class CadPipelineSummary(BaseModel):
     candidate_failed: int = 0
     fusion_success: int = 0
     fusion_failed: int = 0
+    cad_preview_success: int = 0
+    cad_preview_failed: int = 0
+    cad_preview_skipped: int = 0
+    cad_preview_warning_count: int = 0
     skipped_count: int = 0
     error_count: int = 0
     warning_count: int = 0

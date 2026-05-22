@@ -22,6 +22,11 @@ export type DrawingSheet = {
   title_crop_status: string | null;
   title_crop_error_code: string | null;
   title_crop_error_message: string | null;
+  cad_preview_path: string | null;
+  cad_preview_status: string | null;
+  cad_preview_error_code: string | null;
+  cad_preview_error_message: string | null;
+  cad_preview_url: string | null;
   issue_count: number;
   error_count: number;
   warning_count: number;

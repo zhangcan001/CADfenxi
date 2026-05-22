@@ -29,6 +29,7 @@ def init_database() -> None:
     with sqlite3.connect(settings.database_path) as connection:
         connection.execute("PRAGMA journal_mode=WAL;")
     import backend.models.cad_conversion_run
+    import backend.models.backup_record
     import backend.models.converter_setting
     import backend.models.drawing_file
     import backend.models.drawing_issue
@@ -41,6 +42,7 @@ def init_database() -> None:
     import backend.models.recognition_candidate
     import backend.models.recognition_run
     import backend.models.review_audit_log
+    import backend.models.restore_record
 
     Base.metadata.create_all(bind=engine)
     apply_alembic_migrations()

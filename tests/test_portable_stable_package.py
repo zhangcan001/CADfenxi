@@ -53,7 +53,7 @@ def test_stable_package_info_contains_required_release_metadata():
         "日志目录：app_data/logs/",
         "测试状态：python -m pytest 通过，npm run build 通过",
         "说明：本包不内置 Python、Node、ODA File Converter。",
-        "重要限制：不直接解析 DWG，不做 CAD 图形预览，不做算量 / BIM / AI 问答。",
+        "重要限制：不直接解析 DWG，CAD 预览仅用于辅助查看，不做 CAD 编辑 / 算量 / BIM / AI 问答。",
         "备份说明：关闭系统后复制 app_data 目录即可备份数据。",
     ]
     for line in required_lines:

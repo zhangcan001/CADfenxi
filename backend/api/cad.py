@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
 from backend.schemas.cad import (
     BatchCadParseResult,
+    BatchCadPreviewResult,
     BatchDxfSheetPrepareResult,
+    CadPreviewBatchRequest,
     CadParseResult,
+    CadPreviewResult,
     CadParseSummary,
     DxfSheetPrepareResult,
 )
@@ -18,7 +22,7 @@ from backend.schemas.cad_converter import (
     ConverterSettingUpdate,
     DwgConvertResult,
 )
-from backend.services import cad_converter_service, cad_parse_service, cad_sheet_service
+from backend.services import cad_converter_service, cad_parse_service, cad_preview_service, cad_sheet_service
 
 router = APIRouter(prefix="/api", tags=["cad"])
 
@@ -111,3 +115,32 @@ def parse_dxf_batch(batch_id: int, db: Session = Depends(get_db)) -> BatchCadPar
 @router.get("/sheets/{sheet_id}/cad-parse", response_model=CadParseSummary)
 def get_cad_parse_summary(sheet_id: int, db: Session = Depends(get_db)) -> CadParseSummary:
     return cad_parse_service.get_cad_parse_summary(db, sheet_id)
+
+
+@router.post("/sheets/{sheet_id}/cad-preview", response_model=CadPreviewResult)
+def generate_cad_preview(sheet_id: int, db: Session = Depends(get_db)) -> CadPreviewResult:
+    return cad_preview_service.generate_cad_preview_for_sheet(db, sheet_id)
+
+
+@router.get("/sheets/{sheet_id}/cad-preview-image")
+def get_cad_preview_image(sheet_id: int, db: Session = Depends(get_db)) -> FileResponse:
+    path = cad_preview_service.cad_preview_image_path(db, sheet_id)
+    return FileResponse(path, media_type="image/png")
+
+
+@router.post("/imports/{batch_id}/cad-preview", response_model=BatchCadPreviewResult)
+def generate_batch_cad_preview(
+    batch_id: int,
+    payload: CadPreviewBatchRequest | None = None,
+    db: Session = Depends(get_db),
+) -> BatchCadPreviewResult:
+    return cad_preview_service.generate_cad_preview_for_batch(db, batch_id, payload)
+
+
+@router.post("/projects/{project_id}/cad-preview", response_model=BatchCadPreviewResult)
+def generate_project_cad_preview(
+    project_id: int,
+    payload: CadPreviewBatchRequest | None = None,
+    db: Session = Depends(get_db),
+) -> BatchCadPreviewResult:
+    return cad_preview_service.generate_cad_preview_for_project(db, project_id, payload)

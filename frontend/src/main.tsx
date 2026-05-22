@@ -33,6 +33,15 @@ import {
   type CadPipelineStep
 } from "./api/cadPipeline";
 import {
+  generateBatchCadPreview,
+  generateCadPreview,
+  generateProjectCadPreview,
+  getCadPreviewImageUrl,
+  type CadPreviewBatchPayload,
+  type BatchCadPreviewResult,
+  type CadPreviewResult
+} from "./api/cadPreview";
+import {
   checkConverterSetting,
   convertDwgBatch,
   convertDwgFile,
@@ -98,6 +107,18 @@ import {
   type BatchConfirmResult
 } from "./api/review";
 import {
+  createProjectBackup,
+  deleteBackup,
+  downloadBackupUrl,
+  listProjectBackups,
+  restoreBackupAsNewProject,
+  verifyBackup,
+  type BackupRecord,
+  type BackupVerifyResult,
+  type ProjectBackupResult,
+  type RestoreBackupResult
+} from "./api/backups";
+import {
   checkExport,
   downloadExport,
   exportExcel,
@@ -106,14 +127,32 @@ import {
   type ExportExcelResult,
   type ExportRecord
 } from "./api/exports";
+import {
+  buildMaintenanceReport,
+  cleanupTempFiles,
+  getDataSafetySummary,
+  runProjectHealthCheck,
+  runSystemHealthCheck,
+  scanProjectOrphanFiles,
+  type DataHealthItem,
+  type DataSafetySummary,
+  type MaintenanceReportResult,
+  type OrphanFileScanResult,
+  type ProjectHealthResult,
+  type SystemHealthResult,
+  type TempCleanupResult
+} from "./api/dataHealth";
 import "./styles.css";
 import type { HealthResponse } from "./types";
 import { APP_VERSION } from "./constants";
 import {
   drawingFileLabel,
+  dataHealthStatusLabel,
+  dataHealthSuggestion,
   errorCodeMessage,
   fieldNameLabel,
   fieldSourceDescription,
+  cadPreviewStatusLabel,
   formatApiError,
   formatDate,
   formatDuration,
@@ -133,10 +172,77 @@ import {
   statusLabel
 } from "./formatters";
 import { AppHeader } from "./components/AppHeader";
+import { CadPreviewViewer } from "./components/CadPreviewViewer";
 import { CandidateGroups } from "./components/CandidateGroups";
 import { FieldValueList } from "./components/FieldValueList";
 import { Metric } from "./components/Metric";
 import { ProjectsAside } from "./components/ProjectsAside";
+
+function backupVerifyMessage(result: BackupVerifyResult) {
+  if (result.errors.length > 0 || !result.valid) {
+    return "备份包不完整，不建议恢复。";
+  }
+  if (result.warnings.length > 0) {
+    return "备份包可恢复，但存在部分文件缺失或校验警告，恢复后请重点检查图纸预览和导出。";
+  }
+  return "备份包结构完整，可以用于恢复。";
+}
+
+function healthIssueItems(items: DataHealthItem[]) {
+  return items.filter((item) => item.status !== "ok").slice(0, 8);
+}
+
+function groupLabel(group: string) {
+  const labels: Record<string, string> = {
+    storage: "存储",
+    project_files: "项目文件",
+    backup: "备份",
+    export: "导出",
+    restore: "恢复",
+    temp: "临时文件"
+  };
+  return labels[group] ?? group;
+}
+
+function HealthGroupedSummary({ grouped }: { grouped: Record<string, { error: number; warning: number; info: number }> }) {
+  const rows = Object.entries(grouped).filter(([, counts]) => counts.error + counts.warning + counts.info > 0);
+  if (rows.length === 0) {
+    return null;
+  }
+  return (
+    <div className="health-group-grid">
+      {rows.map(([group, counts]) => (
+        <div className="health-group-card" key={group}>
+          <strong>{groupLabel(group)}</strong>
+          <span>异常 {counts.error}</span>
+          <span>需关注 {counts.warning}</span>
+          <span>提示 {counts.info}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HealthIssueList({ items }: { items: DataHealthItem[] }) {
+  const issueItems = healthIssueItems(items);
+  if (issueItems.length === 0) {
+    return null;
+  }
+  return (
+    <div className="file-list health-list">
+      {issueItems.map((item, index) => (
+        <div className={`file-row health-row ${item.status}`} key={`${item.scope}-${item.check_name}-${item.record_id ?? index}`}>
+          <span>{dataHealthStatusLabel(item.status)}</span>
+          <span>{groupLabel(item.scope)}</span>
+          <span>{item.error_code || item.check_name}</span>
+          <span title={item.path || undefined}>{item.path || item.scope}</span>
+          <span>{item.message}</span>
+          <span>{item.suggestion || dataHealthSuggestion(item.error_code)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function App() {
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
@@ -185,6 +291,12 @@ function App() {
     React.useState<BatchCadParseResult | null>(null);
   const [cadParseSummary, setCadParseSummary] = React.useState<CadParseSummary | null>(null);
   const [cadParseError, setCadParseError] = React.useState("");
+  const [cadPreviewResult, setCadPreviewResult] = React.useState<CadPreviewResult | null>(null);
+  const [batchCadPreviewResult, setBatchCadPreviewResult] = React.useState<BatchCadPreviewResult | null>(null);
+  const [cadPreviewError, setCadPreviewError] = React.useState("");
+  const [cadPreviewSkipCompleted, setCadPreviewSkipCompleted] = React.useState(true);
+  const [cadPreviewForce, setCadPreviewForce] = React.useState(false);
+  const [cadPreviewContinueOnError, setCadPreviewContinueOnError] = React.useState(true);
   const [busyAction, setBusyAction] = React.useState("");
   const [previewSheet, setPreviewSheet] = React.useState<DrawingSheet | null>(null);
   const [titleCropResult, setTitleCropResult] = React.useState<BatchTitleCropResult | null>(null);
@@ -225,6 +337,15 @@ function App() {
   const [exportResult, setExportResult] = React.useState<ExportExcelResult | null>(null);
   const [exportRecords, setExportRecords] = React.useState<ExportRecord[]>([]);
   const [exportError, setExportError] = React.useState("");
+  const [backupResult, setBackupResult] = React.useState<ProjectBackupResult | null>(null);
+  const [backupRecords, setBackupRecords] = React.useState<BackupRecord[]>([]);
+  const [backupError, setBackupError] = React.useState("");
+  const [backupBusy, setBackupBusy] = React.useState(false);
+  const [restoreBusyId, setRestoreBusyId] = React.useState<number | null>(null);
+  const [restoreResult, setRestoreResult] = React.useState<RestoreBackupResult | null>(null);
+  const [deleteBackupBusyId, setDeleteBackupBusyId] = React.useState<number | null>(null);
+  const [verifyBusyId, setVerifyBusyId] = React.useState<number | null>(null);
+  const [verifyResults, setVerifyResults] = React.useState<Record<number, BackupVerifyResult>>({});
   const [converterSettings, setConverterSettings] = React.useState<ConverterSetting[]>([]);
   const [converterName, setConverterName] = React.useState("ODA File Converter");
   const [converterExePath, setConverterExePath] = React.useState("");
@@ -249,6 +370,15 @@ function App() {
   const [cadPipelineError, setCadPipelineError] = React.useState("");
   const [cadPipelineStartedAt, setCadPipelineStartedAt] = React.useState<number | null>(null);
   const [cadPipelineElapsed, setCadPipelineElapsed] = React.useState(0);
+  const [dataSafetySummary, setDataSafetySummary] = React.useState<DataSafetySummary | null>(null);
+  const [systemHealthResult, setSystemHealthResult] = React.useState<SystemHealthResult | null>(null);
+  const [projectHealthResult, setProjectHealthResult] = React.useState<ProjectHealthResult | null>(null);
+  const [orphanScanResult, setOrphanScanResult] = React.useState<OrphanFileScanResult | null>(null);
+  const [tempCleanupResult, setTempCleanupResult] = React.useState<TempCleanupResult | null>(null);
+  const [maintenanceReportResult, setMaintenanceReportResult] =
+    React.useState<MaintenanceReportResult | null>(null);
+  const [maintenanceError, setMaintenanceError] = React.useState("");
+  const [maintenanceBusy, setMaintenanceBusy] = React.useState("");
 
   React.useEffect(() => {
     fetch("/api/health")
@@ -286,6 +416,12 @@ function App() {
   }, [refreshProjects]);
 
   React.useEffect(() => {
+    getDataSafetySummary()
+      .then(setDataSafetySummary)
+      .catch(() => setDataSafetySummary(null));
+  }, []);
+
+  React.useEffect(() => {
     if (cadPipelineStartedAt === null) {
       return;
     }
@@ -314,6 +450,13 @@ function App() {
         setProjectFiles([]);
         setSheets([]);
         setSheetPage({ items: [], total: 0, page: 1, page_size: 20, total_pages: 0 });
+        setBackupRecords([]);
+        setBackupResult(null);
+        setBackupError("");
+        setRestoreResult(null);
+        setVerifyResults({});
+        setProjectHealthResult(null);
+        setOrphanScanResult(null);
         setImportResult(null);
         setName("");
         setDescription("");
@@ -332,6 +475,8 @@ function App() {
         setEditDescription(project.description ?? "");
         loadProjectFiles(project.id);
         loadProjectSheets(project.id);
+        loadProjectBackups(project.id);
+        getDataSafetySummary().then(setDataSafetySummary).catch(() => setDataSafetySummary(null));
         loadConverterSettings();
         loadConversionRuns(project.id);
         refreshProjects();
@@ -385,6 +530,12 @@ function App() {
     listProjectConversionRuns(projectId)
       .then(setConversionRuns)
       .catch(() => setConversionRuns([]));
+  };
+
+  const loadProjectBackups = (projectId: number) => {
+    listProjectBackups(projectId)
+      .then(setBackupRecords)
+      .catch(() => setBackupRecords([]));
   };
 
   const updateSheetQuery = (patch: SheetQuery) => {
@@ -449,6 +600,13 @@ function App() {
           setProjectFiles([]);
           setSheets([]);
           setSheetPage({ items: [], total: 0, page: 1, page_size: 20, total_pages: 0 });
+          setBackupRecords([]);
+          setBackupResult(null);
+          setBackupError("");
+          setRestoreResult(null);
+          setVerifyResults({});
+          setProjectHealthResult(null);
+          setOrphanScanResult(null);
         }
       })
       .catch(() => setProjectError("项目删除失败"));
@@ -590,6 +748,64 @@ function App() {
         setCadParseError("");
       })
       .catch((error) => setCadParseError(formatApiError(error, "未找到 CAD 解析结果，请先执行 DXF 解析")))
+      .finally(() => setBusyAction(""));
+  };
+
+  const handleGenerateCadPreview = (sheetId: number) => {
+    if (!selectedProject) {
+      return;
+    }
+    setBusyAction(`cad-preview-${sheetId}`);
+    setCadPreviewError("");
+    generateCadPreview(sheetId)
+      .then((result) => {
+        setCadPreviewResult(result);
+        setBatchCadPreviewResult(null);
+        setCadPreviewError("");
+        loadProjectSheets(selectedProject.id);
+        getSheet(sheetId).then((sheet) => {
+          setDetailSheet((current) => (current?.id === sheetId ? sheet : current));
+          setPreviewSheet((current) => (current?.id === sheetId ? sheet : current));
+        });
+      })
+      .catch((error) => setCadPreviewError(formatApiError(error, "CAD 图形预览生成失败")))
+      .finally(() => setBusyAction(""));
+  };
+
+  const cadPreviewBatchPayload = (): CadPreviewBatchPayload => ({
+    skip_completed: cadPreviewSkipCompleted,
+    force: cadPreviewForce,
+    continue_on_error: cadPreviewContinueOnError
+  });
+
+  const handleGenerateBatchCadPreview = (batchId: number) => {
+    if (!selectedProject) {
+      return;
+    }
+    setBusyAction(`cad-preview-batch-${batchId}`);
+    setCadPreviewError("");
+    generateBatchCadPreview(batchId, cadPreviewBatchPayload())
+      .then((result) => {
+        setBatchCadPreviewResult(result);
+        setCadPreviewResult(null);
+        setCadPreviewError("");
+        loadProjectSheets(selectedProject.id);
+      })
+      .catch((error) => setCadPreviewError(formatApiError(error, "批量生成 CAD 图形预览失败")))
+      .finally(() => setBusyAction(""));
+  };
+
+  const handleGenerateProjectCadPreview = (projectId: number) => {
+    setBusyAction(`cad-preview-project-${projectId}`);
+    setCadPreviewError("");
+    generateProjectCadPreview(projectId, cadPreviewBatchPayload())
+      .then((result) => {
+        setBatchCadPreviewResult(result);
+        setCadPreviewResult(null);
+        setCadPreviewError("");
+        loadProjectSheets(projectId);
+      })
+      .catch((error) => setCadPreviewError(formatApiError(error, "项目级批量生成 CAD 图形预览失败")))
       .finally(() => setBusyAction(""));
   };
 
@@ -1107,6 +1323,129 @@ function App() {
       .catch(() => setExportError("导出失败：项目无图纸、导出目录不可写或 Excel 文件写入失败"));
   };
 
+  const handleCreateBackup = () => {
+    if (!selectedProject) {
+      return;
+    }
+    setBackupBusy(true);
+    createProjectBackup(selectedProject.id)
+      .then((result) => {
+        setBackupResult(result);
+        setBackupError("");
+        loadProjectBackups(selectedProject.id);
+      })
+      .catch((error) => setBackupError(formatApiError(error, "项目备份创建失败，请稍后重试")))
+      .finally(() => setBackupBusy(false));
+  };
+
+  const handleRestoreBackup = (backupId: number) => {
+    const confirmed = window.confirm("恢复备份会创建一个新项目，不会覆盖当前已有项目。是否继续？");
+    if (!confirmed) {
+      return;
+    }
+    setRestoreBusyId(backupId);
+    restoreBackupAsNewProject(backupId)
+      .then((result) => {
+        setRestoreResult(result);
+        setBackupError("");
+        refreshProjects();
+      })
+      .catch((error) => setBackupError(formatApiError(error, "恢复失败，请检查备份包是否完整")))
+      .finally(() => setRestoreBusyId(null));
+  };
+
+  const handleDeleteBackup = (backupId: number) => {
+    const confirmed = window.confirm("删除备份只会删除备份包和记录，不会删除项目。是否继续？");
+    if (!confirmed || !selectedProject) {
+      return;
+    }
+    setDeleteBackupBusyId(backupId);
+    deleteBackup(backupId)
+      .then(() => {
+        setBackupRecords((current) => current.filter((item) => item.backup_id !== backupId));
+        if (backupResult?.backup_id === backupId) {
+          setBackupResult(null);
+        }
+        setBackupError("");
+      })
+      .catch((error) => setBackupError(formatApiError(error, "备份删除失败")))
+      .finally(() => setDeleteBackupBusyId(null));
+  };
+
+  const handleVerifyBackup = (backupId: number) => {
+    setVerifyBusyId(backupId);
+    verifyBackup(backupId)
+      .then((result) => {
+        setVerifyResults((current) => ({ ...current, [backupId]: result }));
+        setBackupError("");
+      })
+      .catch((error) => setBackupError(formatApiError(error, "备份包校验失败")))
+      .finally(() => setVerifyBusyId(null));
+  };
+
+  const handleRunSystemHealthCheck = () => {
+    setMaintenanceBusy("system-health");
+    setMaintenanceError("");
+    runSystemHealthCheck()
+      .then((result) => {
+        setSystemHealthResult(result);
+        setMaintenanceReportResult(null);
+      })
+      .catch((error) => setMaintenanceError(formatApiError(error, "系统健康检查失败")))
+      .finally(() => setMaintenanceBusy(""));
+  };
+
+  const handleRunProjectHealthCheck = () => {
+    if (!selectedProject) {
+      return;
+    }
+    setMaintenanceBusy("project-health");
+    setMaintenanceError("");
+    runProjectHealthCheck(selectedProject.id)
+      .then((result) => {
+        setProjectHealthResult(result);
+        setOrphanScanResult(null);
+      })
+      .catch((error) => setMaintenanceError(formatApiError(error, "项目完整性检查失败")))
+      .finally(() => setMaintenanceBusy(""));
+  };
+
+  const handleScanOrphanFiles = () => {
+    if (!selectedProject) {
+      return;
+    }
+    setMaintenanceBusy("orphan-scan");
+    setMaintenanceError("");
+    scanProjectOrphanFiles(selectedProject.id)
+      .then(setOrphanScanResult)
+      .catch((error) => setMaintenanceError(formatApiError(error, "孤儿文件扫描失败")))
+      .finally(() => setMaintenanceBusy(""));
+  };
+
+  const handleCleanupTempFiles = () => {
+    setMaintenanceBusy("cleanup-temp");
+    setMaintenanceError("");
+    cleanupTempFiles()
+      .then((result) => {
+        setTempCleanupResult(result);
+        getDataSafetySummary().then(setDataSafetySummary).catch(() => setDataSafetySummary(null));
+      })
+      .catch((error) => setMaintenanceError(formatApiError(error, "临时文件清理失败")))
+      .finally(() => setMaintenanceBusy(""));
+  };
+
+  const handleBuildMaintenanceReport = () => {
+    setMaintenanceBusy("maintenance-report");
+    setMaintenanceError("");
+    buildMaintenanceReport()
+      .then((result) => {
+        setMaintenanceReportResult(result);
+        setSystemHealthResult(result.system_health);
+      })
+      .catch((error) => setMaintenanceError(formatApiError(error, "维护报告生成失败")))
+      .finally(() => setMaintenanceBusy(""));
+  };
+
   const updateSheetTitleCrop = (result: TitleCropResult) => {
     setSheets((current) =>
       current.map((sheet) =>
@@ -1328,6 +1667,262 @@ function App() {
                 PDF 图纸台账识别流程内测版。当前 OCR 为内测占位能力，扫描 PDF 识别质量有限。
               </p>
 
+              <section className="backup-panel">
+                <div className="section-title">
+                  <h3>数据安全 / 备份恢复</h3>
+                  <span>{backupRecords.length} 个备份</span>
+                </div>
+                <p className="empty-state">
+                  <strong>项目级备份：</strong>项目级备份只备份当前项目，适合迁移或恢复单个项目。
+                  <br />
+                  <strong>全量备份：</strong>如果要备份全部项目，请关闭系统后复制整个 app_data 目录。
+                  <br />
+                  <strong>恢复说明：</strong>恢复项目会创建一个新项目，不会覆盖原项目。
+                  <br />
+                  <strong>升级说明：</strong>升级新版 portable 前，请先备份 app_data；升级后将旧 app_data 复制到新版目录。
+                </p>
+                {backupError ? <p className="form-error">{backupError}</p> : null}
+                <div className="inline-actions">
+                  <button type="button" onClick={handleCreateBackup} disabled={backupBusy}>
+                    {backupBusy ? "正在备份..." : "备份当前项目"}
+                  </button>
+                </div>
+                {backupResult ? (
+                  <div className="success-message backup-success">
+                    <strong>备份成功</strong>
+                    <span>备份文件名：{backupResult.file_name}</span>
+                    <span>文件大小：{formatFileSize(backupResult.file_size)}</span>
+                    <a className="button-link" href={downloadBackupUrl(backupResult.backup_id)}>
+                      下载备份包
+                    </a>
+                  </div>
+                ) : null}
+                {restoreBusyId ? <p className="success-message">正在恢复项目...</p> : null}
+                {restoreResult ? (
+                  <div className="success-message backup-success">
+                    <strong>恢复成功，新项目已创建。</strong>
+                    <span>新项目名称：{restoreResult.new_project_name}</span>
+                    <span>建议下一步：</span>
+                    <ol className="compact-steps">
+                      <li>打开新项目。</li>
+                      <li>检查图纸台账。</li>
+                      <li>打开几张图纸详情。</li>
+                      <li>导出一次 Excel，确认数据正常。</li>
+                    </ol>
+                    <div className="inline-actions">
+                      <button type="button" onClick={() => handleOpenProject(restoreResult.new_project_id)}>
+                        打开新项目
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => {
+                          setSelectedProject(null);
+                          refreshProjects();
+                        }}
+                      >
+                        查看项目列表
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="sheet-list backup-list">
+                  <div className="section-title">
+                    <h3>备份列表</h3>
+                    <span>{backupRecords.length} 条</span>
+                  </div>
+                  {backupRecords.length === 0 ? (
+                    <p className="empty-state">暂无项目备份</p>
+                  ) : (
+                    <div className="file-list">
+                      {backupRecords.map((record) => (
+                        <div className="file-row backup-row" key={record.backup_id}>
+                          <span>{formatDate(record.created_at)}</span>
+                          <span>{selectedProject.name}</span>
+                          <span title={record.file_name}>{record.file_name}</span>
+                          <span>{formatFileSize(record.file_size)}</span>
+                          <span>{record.status}</span>
+                          <span>
+                            {verifyResults[record.backup_id]
+                              ? verifyResults[record.backup_id].valid
+                                ? "校验通过"
+                                : "校验异常"
+                              : "未校验"}
+                          </span>
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => handleVerifyBackup(record.backup_id)}
+                            disabled={verifyBusyId === record.backup_id}
+                          >
+                            {verifyBusyId === record.backup_id ? "校验中..." : "校验备份包"}
+                          </button>
+                          <a className="text-link" href={downloadBackupUrl(record.backup_id)}>
+                            下载
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreBackup(record.backup_id)}
+                            disabled={restoreBusyId === record.backup_id || record.status !== "success"}
+                          >
+                            {restoreBusyId === record.backup_id ? "恢复中..." : "恢复为新项目"}
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => handleDeleteBackup(record.backup_id)}
+                            disabled={deleteBackupBusyId === record.backup_id}
+                          >
+                            {deleteBackupBusyId === record.backup_id ? "删除中..." : "删除"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {Object.entries(verifyResults).map(([backupId, result]) => (
+                    <div className={result.valid ? "success-message backup-success" : "form-error backup-success"} key={backupId}>
+                      <strong>备份 #{backupId} {result.valid ? "校验通过" : "校验异常"}</strong>
+                      <span>{backupVerifyMessage(result)}</span>
+                      <span>文件数量：{result.summary?.file_count ?? result.counts.manifest_files ?? 0}</span>
+                      <span>缺失文件：{result.summary?.missing_file_count ?? result.counts.missing_files ?? 0}</span>
+                      <span>checksum 失败：{result.summary?.checksum_failed_count ?? result.counts.checksum_failed ?? 0}</span>
+                      {result.warnings.map((warning) => (
+                        <span key={warning}>warning：{warning}</span>
+                      ))}
+                      {result.errors.map((error) => (
+                        <span key={error}>error：{error}</span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="maintenance-panel">
+                <div className="section-title">
+                  <h3>系统维护 / 数据健康检查</h3>
+                  <span>只读检查</span>
+                </div>
+                <p className="empty-state">
+                  健康检查会对照数据库记录和 app_data 文件，检查原始图纸、PDF 预览、CAD JSON、CAD 预览、DWG 转换 DXF、Excel 导出和备份包是否存在。本工具不会自动修复数据库，也不会删除项目文件；仅“安全清理临时文件”会清理 app_data/temp。
+                </p>
+                {dataSafetySummary ? (
+                  <div className="summary-grid compact">
+                    <Metric label="项目数" value={dataSafetySummary.project_count} />
+                    <Metric label="备份记录" value={dataSafetySummary.backup_count} />
+                    <Metric label="导出记录" value={dataSafetySummary.export_count} />
+                    <Metric label="恢复记录" value={dataSafetySummary.restore_count} />
+                    <Metric label="app_data 可写" value={dataSafetySummary.app_data_writable ? 1 : 0} />
+                    <Metric label="database 存在" value={dataSafetySummary.database_exists ? 1 : 0} />
+                  </div>
+                ) : null}
+                {maintenanceError ? <p className="form-error">{maintenanceError}</p> : null}
+                <div className="inline-actions">
+                  <button type="button" onClick={handleRunSystemHealthCheck} disabled={maintenanceBusy === "system-health"}>
+                    {maintenanceBusy === "system-health" ? "检查中..." : "运行系统健康检查"}
+                  </button>
+                  <button type="button" onClick={handleRunProjectHealthCheck} disabled={maintenanceBusy === "project-health"}>
+                    {maintenanceBusy === "project-health" ? "检查中..." : "检查当前项目"}
+                  </button>
+                  <button type="button" className="ghost" onClick={handleScanOrphanFiles} disabled={maintenanceBusy === "orphan-scan"}>
+                    {maintenanceBusy === "orphan-scan" ? "扫描中..." : "扫描孤儿文件"}
+                  </button>
+                  <button type="button" className="ghost" onClick={handleBuildMaintenanceReport} disabled={maintenanceBusy === "maintenance-report"}>
+                    {maintenanceBusy === "maintenance-report" ? "生成中..." : "生成维护报告"}
+                  </button>
+                  <button type="button" className="ghost" onClick={handleCleanupTempFiles} disabled={maintenanceBusy === "cleanup-temp"}>
+                    {maintenanceBusy === "cleanup-temp" ? "清理中..." : "安全清理 temp"}
+                  </button>
+                </div>
+
+                {systemHealthResult ? (
+                  <div className="health-result">
+                    <div className="section-title">
+                      <h3>系统健康结果</h3>
+                      <span>{dataHealthStatusLabel(systemHealthResult.status)}</span>
+                    </div>
+                    <div className="summary-grid compact">
+                      <Metric label="OK" value={systemHealthResult.summary.ok_count} />
+                      <Metric label="Info" value={systemHealthResult.summary.info_count} />
+                      <Metric label="Warning" value={systemHealthResult.summary.warning_count} />
+                      <Metric label="Error" value={systemHealthResult.summary.error_count} />
+                      <Metric label="缺失文件" value={systemHealthResult.summary.missing_file_count} />
+                      <Metric label="检查文件" value={systemHealthResult.summary.checked_file_count} />
+                      <Metric label="temp 文件" value={systemHealthResult.summary.temp_file_count} />
+                    </div>
+                    <HealthGroupedSummary grouped={systemHealthResult.grouped_summary} />
+                    {healthIssueItems(systemHealthResult.items).length > 0 ? (
+                      <HealthIssueList items={systemHealthResult.items} />
+                    ) : (
+                      <p className="success-message">系统健康检查未发现异常项。</p>
+                    )}
+                  </div>
+                ) : null}
+
+                {projectHealthResult ? (
+                  <div className="health-result">
+                    <div className="section-title">
+                      <h3>当前项目完整性</h3>
+                      <span>{dataHealthStatusLabel(projectHealthResult.status)}</span>
+                    </div>
+                    <div className="summary-grid compact">
+                      <Metric label="OK" value={projectHealthResult.summary.ok_count} />
+                      <Metric label="Info" value={projectHealthResult.summary.info_count} />
+                      <Metric label="Warning" value={projectHealthResult.summary.warning_count} />
+                      <Metric label="Error" value={projectHealthResult.summary.error_count} />
+                      <Metric label="缺失文件" value={projectHealthResult.summary.missing_file_count} />
+                      <Metric label="孤儿文件" value={projectHealthResult.summary.orphan_file_count} />
+                      <Metric label="检查文件" value={projectHealthResult.summary.checked_file_count} />
+                    </div>
+                    <HealthGroupedSummary grouped={projectHealthResult.grouped_summary} />
+                    {healthIssueItems(projectHealthResult.items).length > 0 ? (
+                      <HealthIssueList items={projectHealthResult.items} />
+                    ) : (
+                      <p className="success-message">当前项目完整性检查未发现异常项。</p>
+                    )}
+                  </div>
+                ) : null}
+
+                {orphanScanResult ? (
+                  <div className="health-result">
+                    <div className="section-title">
+                      <h3>孤儿文件扫描</h3>
+                      <span>{orphanScanResult.orphan_files.length} 个</span>
+                    </div>
+                    {orphanScanResult.orphan_files.length > 0 ? (
+                      <div className="file-list health-list">
+                        {orphanScanResult.orphan_files.slice(0, 8).map((file) => (
+                          <div className="file-row health-row warning" key={file.path}>
+                            <span>需关注</span>
+                            <span>ORPHAN_FILE</span>
+                            <span title={file.path}>{file.path}</span>
+                            <span>{formatFileSize(file.size_bytes)}</span>
+                            <span>{file.suggestion}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="success-message">未发现数据库未引用的项目文件。</p>
+                    )}
+                  </div>
+                ) : null}
+
+                {tempCleanupResult ? (
+                  <p className={tempCleanupResult.errors.length > 0 ? "form-error" : "success-message"}>
+                    temp 清理完成：删除文件 {tempCleanupResult.deleted_file_count} 个，删除空目录 {tempCleanupResult.deleted_dir_count} 个，释放 {formatFileSize(tempCleanupResult.freed_bytes)}。
+                    {tempCleanupResult.errors.length > 0 ? ` 错误：${tempCleanupResult.errors.join("；")}` : ""}
+                  </p>
+                ) : null}
+                {maintenanceReportResult ? (
+                  <div className="health-result">
+                    <div className="section-title">
+                      <h3>维护报告</h3>
+                      <span>{dataHealthStatusLabel(maintenanceReportResult.status)}</span>
+                    </div>
+                    <textarea readOnly rows={8} value={maintenanceReportResult.report_markdown} />
+                  </div>
+                ) : null}
+              </section>
+
               <div className="project-actions">
                 <button type="button" onClick={() => setImportOpen((value) => !value)}>
                   导入图纸
@@ -1402,6 +1997,7 @@ function App() {
                   <Metric label="已创建 sheet" value={dxfSheetCount} />
                   <Metric label="已解析 DXF" value={dxfParsedCount} />
                   <Metric label="已生成候选值" value={cadPipelineResult?.summary.candidate_success ?? 0} />
+                  <Metric label="CAD 预览" value={cadPipelineResult?.summary.cad_preview_success ?? 0} />
                   <Metric label="推荐字段" value={dxfRecommendedCount} />
                   <Metric label="失败数量" value={failedSheetCount + pendingDwgFiles.filter((file) => file.convert_status === "failed").length} />
                 </div>
@@ -1411,7 +2007,8 @@ function App() {
                     "prepare_dxf_sheet",
                     "parse_dxf",
                     "generate_candidates",
-                    "fuse_fields"
+                    "fuse_fields",
+                    "generate_cad_preview"
                   ] as CadPipelineStep[]).map((step) => (
                     <label key={step}>
                       <input
@@ -1441,12 +2038,52 @@ function App() {
                     单个失败继续处理
                   </label>
                 </div>
+                <div className="pipeline-options">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={cadPreviewSkipCompleted}
+                      onChange={(event) => setCadPreviewSkipCompleted(event.target.checked)}
+                    />
+                    批量预览跳过已生成
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={cadPreviewForce}
+                      onChange={(event) => setCadPreviewForce(event.target.checked)}
+                    />
+                    强制重新生成预览
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={cadPreviewContinueOnError}
+                      onChange={(event) => setCadPreviewContinueOnError(event.target.checked)}
+                    />
+                    单张失败继续生成
+                  </label>
+                </div>
                 <button
                   type="button"
                   disabled={!latestBatchId || busyAction === `cad-pipeline-${latestBatchId}`}
                   onClick={() => latestBatchId && handleRunCadPipeline(latestBatchId)}
                 >
                   {latestBatchId && busyAction === `cad-pipeline-${latestBatchId}` ? "批量处理中..." : "开始批量处理"}
+                </button>
+                <button
+                  type="button"
+                  disabled={!latestBatchId || busyAction === `cad-preview-batch-${latestBatchId}`}
+                  onClick={() => latestBatchId && handleGenerateBatchCadPreview(latestBatchId)}
+                >
+                  {latestBatchId && busyAction === `cad-preview-batch-${latestBatchId}` ? "正在生成 CAD 预览..." : "开始批量生成预览"}
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedProject || busyAction === `cad-preview-project-${selectedProject?.id}`}
+                  onClick={() => selectedProject && handleGenerateProjectCadPreview(selectedProject.id)}
+                >
+                  {selectedProject && busyAction === `cad-preview-project-${selectedProject.id}` ? "正在生成项目预览..." : "项目级批量生成 CAD 预览"}
                 </button>
                 {latestBatchId && busyAction === `cad-pipeline-${latestBatchId}` ? (
                   <div className="pipeline-running">
@@ -1457,6 +2094,19 @@ function App() {
                   </div>
                 ) : null}
                 {cadPipelineError ? <p className="form-error">{cadPipelineError}</p> : null}
+                {latestBatchId && busyAction === `cad-preview-batch-${latestBatchId}` ? (
+                  <div className="pipeline-running">
+                    <strong>正在生成 CAD 预览...</strong>
+                    <span>选项：{cadPreviewSkipCompleted ? "跳过已生成" : "不跳过"}，{cadPreviewForce ? "强制刷新" : "保留缓存"}，{cadPreviewContinueOnError ? "失败继续" : "遇错停止"}</span>
+                    <span>完成后会显示成功、失败、跳过和耗时统计。</span>
+                  </div>
+                ) : null}
+                {selectedProject && busyAction === `cad-preview-project-${selectedProject.id}` ? (
+                  <div className="pipeline-running">
+                    <strong>正在生成项目 CAD 预览...</strong>
+                    <span>项目范围会处理所有 DXF 和已转换 DWG 图纸页。</span>
+                  </div>
+                ) : null}
                 {cadPipelineResult ? (
                   <div className="pipeline-result">
                     <p className="success-message">
@@ -1481,6 +2131,31 @@ function App() {
                           <div className="file-row" key={`${error.step}-${error.file_id ?? "batch"}-${index}`}>
                             <span>{error.file_name || (error.file_id ? `文件 #${error.file_id}` : "批次")}</span>
                             <span>{pipelineStepLabel(error.step)}</span>
+                            <span>{error.error_code}</span>
+                            <span>{error.message}</span>
+                            <span>{pipelineErrorSuggestion(error.error_code)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {batchCadPreviewResult ? (
+                  <div className="pipeline-result">
+                    <p className={batchCadPreviewResult.failed_count > 0 ? "form-error" : "success-message"}>
+                      CAD 预览批量生成完成：状态 {pipelineStatusLabel(batchCadPreviewResult.status)}，
+                      总数 {batchCadPreviewResult.summary.total_count}，成功 {batchCadPreviewResult.summary.success_count}，
+                      失败 {batchCadPreviewResult.summary.failed_count}，跳过 {batchCadPreviewResult.summary.skipped_count}，
+                      warning {batchCadPreviewResult.summary.warning_count}，耗时 {formatDuration(batchCadPreviewResult.summary.duration_seconds)}。
+                    </p>
+                    {batchCadPreviewResult.warnings.length > 0 ? (
+                      <p className="empty-state">{batchCadPreviewResult.warnings.join("；")}</p>
+                    ) : null}
+                    {batchCadPreviewResult.errors.length > 0 ? (
+                      <div className="file-list">
+                        {batchCadPreviewResult.errors.map((error, index) => (
+                          <div className="file-row" key={`${error.sheet_id ?? "sheet"}-${index}`}>
+                            <span>{error.file_name || (error.sheet_id ? `sheet #${error.sheet_id}` : "CAD 图纸")}</span>
                             <span>{error.error_code}</span>
                             <span>{error.message}</span>
                             <span>{pipelineErrorSuggestion(error.error_code)}</span>
@@ -1562,6 +2237,15 @@ function App() {
                           </button>
                         ) : null}
                         {isCadReadyFile(file) && sheetByFileId.get(file.id) ? (
+                          <button
+                            type="button"
+                            disabled={busyAction === `cad-preview-${sheetByFileId.get(file.id)!.id}`}
+                            onClick={() => handleGenerateCadPreview(sheetByFileId.get(file.id)!.id)}
+                          >
+                            {busyAction === `cad-preview-${sheetByFileId.get(file.id)!.id}` ? "生成预览中..." : "生成 CAD 预览"}
+                          </button>
+                        ) : null}
+                        {isCadReadyFile(file) && sheetByFileId.get(file.id) ? (
                           <button type="button" onClick={() => handleGenerateSheetCandidates(sheetByFileId.get(file.id)!.id)}>
                             生成候选值
                           </button>
@@ -1582,6 +2266,11 @@ function App() {
                   {dxfFileCount + convertedDwgCount > 0 && latestBatchId ? (
                     <button type="button" disabled={busyAction === `parse-batch-${latestBatchId}`} onClick={() => handleParseDxfBatch(latestBatchId)}>
                       {busyAction === `parse-batch-${latestBatchId}` ? "批量解析中..." : "批量解析 DXF"}
+                    </button>
+                  ) : null}
+                  {dxfFileCount + convertedDwgCount > 0 && latestBatchId ? (
+                    <button type="button" disabled={busyAction === `cad-preview-batch-${latestBatchId}`} onClick={() => handleGenerateBatchCadPreview(latestBatchId)}>
+                      {busyAction === `cad-preview-batch-${latestBatchId}` ? "批量生成预览中..." : "批量生成 CAD 预览"}
                     </button>
                   ) : null}
                   {pendingDwgFiles.length > 0 && latestBatchId ? (
@@ -1788,10 +2477,33 @@ function App() {
               {splitError ? <p className="form-error">{splitError}</p> : null}
               {dxfPrepareError ? <p className="form-error">{dxfPrepareError}</p> : null}
               {cadParseError ? <p className="form-error">{cadParseError}</p> : null}
+              {cadPreviewError ? <p className="form-error">{cadPreviewError}</p> : null}
               {titleCropError ? <p className="form-error">{titleCropError}</p> : null}
               {recognitionError ? <p className="form-error">{recognitionError}</p> : null}
               {candidateError ? <p className="form-error">{candidateError}</p> : null}
               {fusionError ? <p className="form-error">{fusionError}</p> : null}
+
+              {cadPreviewResult ? (
+                <p className={cadPreviewResult.status === "success" ? "success-message" : "form-error"}>
+                  CAD 预览{cadPreviewResult.status === "success" ? "生成成功" : "生成失败"}：
+                  {cadPreviewResult.error_code || cadPreviewResult.cad_preview_path || "-"}。
+                  耗时 {formatDuration(cadPreviewResult.duration_seconds)}，跳过实体 {cadPreviewResult.skipped_entity_count} 个。
+                  {cadPreviewResult.warnings.length > 0 ? ` warning：${cadPreviewResult.warnings.join("；")}` : ""}
+                </p>
+              ) : null}
+              {batchCadPreviewResult ? (
+                <div className="split-result">
+                  <div className="section-title">
+                    <h3>CAD 预览批量结果</h3>
+                    <span>{pipelineStatusLabel(batchCadPreviewResult.status)}</span>
+                  </div>
+                  <p>
+                    总数 {batchCadPreviewResult.summary.total_count}，成功 {batchCadPreviewResult.summary.success_count}，
+                    失败 {batchCadPreviewResult.summary.failed_count}，跳过 {batchCadPreviewResult.summary.skipped_count}，
+                    warning {batchCadPreviewResult.summary.warning_count}，耗时 {formatDuration(batchCadPreviewResult.summary.duration_seconds)}。
+                  </p>
+                </div>
+              ) : null}
 
               {splitResult ? (
                 <div className="split-result">
@@ -2178,7 +2890,9 @@ function App() {
                               }}
                             />
                           ) : sheet.source_format === "dxf" ? (
-                            <span className="thumb-placeholder small">DXF 暂无预览</span>
+                            <span className="thumb-placeholder small">
+                              CAD 预览：{cadPreviewStatusLabel(sheet.cad_preview_status, Boolean(sheet.cad_preview_path), sheet.cad_preview_error_code)}
+                            </span>
                           ) : (
                             <span className="thumb-placeholder small">图片不可用或文件缺失。</span>
                           )}
@@ -2207,7 +2921,11 @@ function App() {
                             <button type="button" onClick={() => setPreviewSheet(sheet)}>
                               查看预览
                             </button>
-                          ) : null}
+                          ) : (
+                            <button type="button" onClick={() => setPreviewSheet(sheet)}>
+                              {sheet.cad_preview_status === "success" && sheet.cad_preview_path ? "查看 CAD 预览" : "CAD 预览入口"}
+                            </button>
+                          )}
                           <button type="button" onClick={() => updateSheetQuery({ has_issue: true })}>
                             查看问题
                           </button>
@@ -2266,6 +2984,22 @@ function App() {
                               >
                                 {busyAction === `cad-summary-${sheet.id}` ? "加载摘要中..." : "查看 CAD 解析摘要"}
                               </button>
+                              <button
+                                type="button"
+                                disabled={busyAction === `cad-preview-${sheet.id}`}
+                                onClick={() => handleGenerateCadPreview(sheet.id)}
+                              >
+                                {busyAction === `cad-preview-${sheet.id}`
+                                  ? "生成预览中..."
+                                  : sheet.cad_preview_status === "failed"
+                                    ? "重新生成 CAD 预览"
+                                    : sheet.cad_preview_status === "success"
+                                      ? "刷新 CAD 预览"
+                                      : "生成 CAD 预览"}
+                              </button>
+                              {sheet.cad_preview_status === "failed" ? (
+                                <span>{sheet.cad_preview_error_code || "CAD_PREVIEW_RENDER_FAILED"}</span>
+                              ) : null}
                               <button
                                 type="button"
                                 disabled={busyAction === `candidates-${sheet.id}`}
@@ -2657,16 +3391,41 @@ function App() {
             </div>
             <div className="preview-columns">
               <div>
-                <h4>整页预览</h4>
-                {previewSheet.preview_path ? (
-                  <img
-                    src={`/api/sheets/${previewSheet.id}/preview`}
-                    alt={`${previewSheet.original_file_name} 第 ${previewSheet.page_no} 页预览`}
-                  />
+                {previewSheet.source_format === "pdf" ? (
+                  <>
+                    <h4>整页预览</h4>
+                    {previewSheet.preview_path ? (
+                      <img
+                        src={`/api/sheets/${previewSheet.id}/preview`}
+                        alt={`${previewSheet.original_file_name} 第 ${previewSheet.page_no} 页预览`}
+                      />
+                    ) : (
+                      <p className="empty-state">图片不可用或文件缺失。</p>
+                    )}
+                  </>
                 ) : (
-                  <p className="empty-state">图片不可用或文件缺失。</p>
+                  <>
+                    <h4>CAD 图形预览</h4>
+                    <p className="empty-state">
+                      CAD 预览仅用于辅助查看，可能与专业 CAD 软件显示效果不完全一致。
+                    </p>
+                    <CadPreviewViewer
+                      imageUrl={
+                        previewSheet.cad_preview_status === "success" && previewSheet.cad_preview_path
+                          ? getCadPreviewImageUrl(previewSheet.id)
+                          : null
+                      }
+                      fileName={previewSheet.original_file_name}
+                      status={previewSheet.cad_preview_status || "pending"}
+                      errorCode={previewSheet.cad_preview_error_code}
+                      errorMessage={previewSheet.cad_preview_error_message}
+                      isGenerating={busyAction === `cad-preview-${previewSheet.id}`}
+                      onRegenerate={() => handleGenerateCadPreview(previewSheet.id)}
+                    />
+                  </>
                 )}
               </div>
+              {previewSheet.source_format === "pdf" ? (
               <div>
                 <h4>标题栏裁剪图</h4>
                 {previewSheet.title_crop_status === "success" ? (
@@ -2714,6 +3473,36 @@ function App() {
                   </button>
                 </div>
               </div>
+              ) : (
+              <div>
+                <h4>CAD 预览状态</h4>
+                <p className="empty-state">
+                  DXF 图纸或 DWG 转 DXF 后的图纸可以生成轻量 PNG 预览。预览失败不会影响候选值、校核或 Excel 导出。
+                </p>
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    disabled={busyAction === `parse-${previewSheet.file_id}`}
+                    onClick={() => handleParseDxfFile(previewSheet.file_id)}
+                  >
+                    {busyAction === `parse-${previewSheet.file_id}` ? "解析中..." : "解析 DXF"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyAction === `cad-summary-${previewSheet.id}`}
+                    onClick={() => handleLoadCadParseSummary(previewSheet.id)}
+                  >
+                    {busyAction === `cad-summary-${previewSheet.id}` ? "加载摘要中..." : "查看 CAD 解析摘要"}
+                  </button>
+                  <button type="button" onClick={() => handleGenerateSheetCandidates(previewSheet.id)}>
+                    生成候选值
+                  </button>
+                  <button type="button" onClick={() => handleFuseSheetFields(previewSheet.id)}>
+                    生成推荐字段
+                  </button>
+                </div>
+              </div>
+              )}
             </div>
             {detailSheet?.id === previewSheet.id ? (
               <div className="detail-readonly">

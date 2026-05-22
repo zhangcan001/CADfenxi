@@ -38,6 +38,10 @@ class DrawingSheet(Base):
     title_crop_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     title_crop_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     title_crop_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cad_preview_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cad_preview_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    cad_preview_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cad_preview_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

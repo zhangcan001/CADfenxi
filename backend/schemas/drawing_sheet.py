@@ -27,6 +27,11 @@ class DrawingSheetListItem(BaseModel):
     title_crop_status: str | None
     title_crop_error_code: str | None
     title_crop_error_message: str | None
+    cad_preview_path: str | None = None
+    cad_preview_status: str | None = None
+    cad_preview_error_code: str | None = None
+    cad_preview_error_message: str | None = None
+    cad_preview_url: str | None = None
     issue_count: int = 0
     error_count: int = 0
     warning_count: int = 0
@@ -64,6 +69,11 @@ class DrawingSheetRead(BaseModel):
     title_crop_status: str | None
     title_crop_error_code: str | None
     title_crop_error_message: str | None
+    cad_preview_path: str | None = None
+    cad_preview_status: str | None = None
+    cad_preview_error_code: str | None = None
+    cad_preview_error_message: str | None = None
+    cad_preview_url: str | None = None
     error_code: str | None
     error_message: str | None
     created_at: datetime

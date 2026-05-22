@@ -23,9 +23,11 @@ from backend.schemas.cad_pipeline import (
     CadPipelineStepResult,
     CadPipelineSummary,
 )
+from backend.schemas.cad import CadPreviewBatchRequest
 from backend.services import (
     cad_converter_service,
     cad_parse_service,
+    cad_preview_service,
     cad_sheet_service,
     candidate_service,
     fusion_service,
@@ -125,12 +127,17 @@ def _fusion_handler(db, batch_id, files, payload):
     return run_fusion_step(db, batch_id, payload)
 
 
+def _cad_preview_handler(db, batch_id, files, payload):
+    return run_cad_preview_step(db, batch_id, payload)
+
+
 STEP_HANDLERS: dict[CadPipelineStepName, StepHandler] = {
     "convert_dwg": _convert_handler,
     "prepare_dxf_sheet": _prepare_handler,
     "parse_dxf": _parse_handler,
     "generate_candidates": _candidate_handler,
     "fuse_fields": _fusion_handler,
+    "generate_cad_preview": _cad_preview_handler,
 }
 
 
@@ -539,6 +546,58 @@ def run_fusion_step(
     ), executed
 
 
+def run_cad_preview_step(
+    db: Session,
+    batch_id: int,
+    payload: CadPipelineRequest,
+) -> tuple[CadPipelineStepResult, bool]:
+    started_at = now()
+    batch_result = cad_preview_service.generate_cad_preview_for_batch(
+        db,
+        batch_id,
+        CadPreviewBatchRequest(
+            skip_completed=payload.skip_completed,
+            force=False,
+            continue_on_error=payload.continue_on_error,
+        ),
+    )
+    items = [
+        CadPipelineItem(
+            file_id=result.file_id,
+            sheet_id=result.sheet_id,
+            file_name=result.file_name,
+            status=result.status,
+            error_code=result.error_code,
+            message=result.error_message,
+        )
+        for result in batch_result.items
+    ]
+    errors = [
+        CadPipelineError(
+            file_id=next((item.file_id for item in items if item.sheet_id == error.sheet_id), None),
+            sheet_id=error.sheet_id,
+            file_name=error.file_name,
+            step="generate_cad_preview",
+            error_code=error.error_code,
+            message=error.message,
+        )
+        for error in batch_result.errors
+    ]
+    executed = batch_result.success_count > 0 or batch_result.failed_count > 0
+    status_value = batch_result.status
+    return make_step(
+        "generate_cad_preview",
+        status_value,
+        started_at,
+        items,
+        errors,
+        batch_result.success_count,
+        batch_result.failed_count,
+        batch_result.skipped_count,
+        batch_result.warning_count,
+    ), executed
+
+
 def make_step(
     step: CadPipelineStepName,
     status_value: CadPipelineStatus,
@@ -548,6 +607,7 @@ def make_step(
     success_count: int = 0,
     failed_count: int = 0,
     skipped_count: int = 0,
+    warning_count: int = 0,
 ) -> CadPipelineStepResult:
     return CadPipelineStepResult(
         step=step,
@@ -556,6 +616,7 @@ def make_step(
         success_count=success_count,
         failed_count=failed_count,
         skipped_count=skipped_count,
+        warning_count=warning_count,
         items=items,
         errors=errors,
     )
@@ -596,6 +657,11 @@ def build_summary(
         elif step.step == "fuse_fields":
             summary.fusion_success = step.success_count
             summary.fusion_failed = step.failed_count
+        elif step.step == "generate_cad_preview":
+            summary.cad_preview_success = step.success_count
+            summary.cad_preview_failed = step.failed_count
+            summary.cad_preview_skipped = step.skipped_count
+            summary.cad_preview_warning_count = step.warning_count
     return summary
 
 

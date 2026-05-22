@@ -15,12 +15,13 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "工程图纸智能台账识别系统"
-    app_version: str = "v0.6.2-rule-fix"
+    app_version: str = "v1.0-local-stable"
 
     root_dir: Path = ROOT_DIR
     frontend_dist_dir: Path = ROOT_DIR / "frontend" / "dist"
     app_data_dir: Path = ROOT_DIR / "app_data"
     projects_dir: Path = ROOT_DIR / "app_data" / "projects"
+    backups_dir: Path = ROOT_DIR / "app_data" / "backups"
     database_dir: Path = ROOT_DIR / "app_data" / "database"
     logs_dir: Path = ROOT_DIR / "app_data" / "logs"
     temp_dir: Path = ROOT_DIR / "app_data" / "temp"
@@ -52,6 +53,7 @@ class Settings(BaseSettings):
     def storage_dirs(self) -> tuple[Path, ...]:
         return (
             self.projects_dir,
+            self.backups_dir,
             self.database_dir,
             self.logs_dir,
             self.temp_dir,

@@ -30,7 +30,7 @@ from test_full_flow_stability_v055 import (
 from dwg_test_helpers import DWG_BYTES, clear_converter_tables, create_converter_setting, write_mock_converter
 
 
-VERSION = "v0.6.2-rule-fix"
+VERSION = "v1.0-local-stable"
 
 
 def field_candidates(candidates: list[dict], field_name: str) -> list[dict]:
@@ -61,7 +61,7 @@ def counts(sheet_id: int) -> tuple[int, int]:
         )
 
 
-def test_v062_health_version_and_portable_default():
+def test_v07_health_version_and_portable_default():
     from scripts.build_portable_package import DEFAULT_VERSION, package_name
 
     with TestClient(app) as client:

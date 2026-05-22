@@ -70,7 +70,8 @@ export function pipelineStepLabel(step: CadPipelineStep) {
     prepare_dxf_sheet: "准备 DXF 图纸页",
     parse_dxf: "解析 DXF",
     generate_candidates: "生成候选值",
-    fuse_fields: "生成推荐字段"
+    fuse_fields: "生成推荐字段",
+    generate_cad_preview: "生成 CAD 预览"
   };
   return labels[step];
 }
@@ -134,9 +135,72 @@ export function pipelineErrorSuggestion(errorCode: string) {
     CAD_PARSE_NOT_FOUND: "请先解析 DXF。",
     NO_CANDIDATES: "未生成候选值，请进入校核工作台人工补充。",
     DXF_CANDIDATE_EMPTY: "请检查 CAD JSON 中是否包含标题栏文字或块属性。",
-    FIELD_FUSION_FAILED: "请检查候选值后重试，必要时人工补充字段。"
+    FIELD_FUSION_FAILED: "请检查候选值后重试，必要时人工补充字段。",
+    CAD_PREVIEW_FILE_NOT_FOUND: "请检查 DXF 文件是否存在，或重新上传图纸。",
+    CAD_PREVIEW_DXF_OPEN_FAILED: "请用 CAD 软件打开该 DXF，确认文件未损坏。",
+    CAD_PREVIEW_TIMEOUT: "图纸较大或复杂，建议单独重新生成预览。",
+    CAD_PREVIEW_RENDER_FAILED: "请尝试重新生成，或使用 CAD 软件查看。",
+    CAD_PREVIEW_FILE_MISSING: "预览文件缺失，请重新生成 CAD 预览。",
+    CAD_PREVIEW_FILE_MISSING_REGENERATED: "预览文件曾缺失，系统已尝试重新生成。"
   };
   return labels[errorCode] ?? "请查看文件状态并重试。";
+}
+
+export function cadPreviewStatusLabel(status: string | null, hasPreviewPath: boolean, errorCode?: string | null) {
+  if (status === "success" && hasPreviewPath) {
+    return "已生成";
+  }
+  if (status === "failed") {
+    return errorCode === "CAD_PREVIEW_FILE_MISSING" ? "文件缺失" : "生成失败";
+  }
+  if (status === "skipped") {
+    return "已跳过";
+  }
+  return "未生成";
+}
+
+export function dataHealthStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    ok: "正常",
+    info: "提示",
+    warning: "需关注",
+    error: "异常"
+  };
+  return labels[status] ?? status;
+}
+
+export function dataHealthSuggestion(errorCode: string | null | undefined) {
+  const labels: Record<string, string> = {
+    APP_DATA_NOT_WRITABLE: "请检查目录权限或软件所在磁盘是否只读。",
+    DATABASE_FILE_MISSING: "请确认 app_data/database/app.db 是否已复制或重新启动系统初始化。",
+    PROJECT_DIR_MISSING: "请确认是否完整复制了 app_data/projects 目录。",
+    DRAWING_FILE_MISSING: "请确认是否完整复制了 app_data/projects 目录。",
+    CONVERTED_DXF_MISSING: "可重新执行 DWG 转 DXF。",
+    SHEET_PREVIEW_MISSING: "可重新生成图纸页预览。",
+    SHEET_THUMBNAIL_MISSING: "可重新生成图纸页缩略图。",
+    TITLE_CROP_MISSING: "可重新生成标题栏裁剪图。",
+    CAD_JSON_MISSING: "可重新执行 DXF 解析。",
+    CAD_PREVIEW_MISSING: "可重新生成 CAD 预览。",
+    EXPORT_FILE_MISSING: "可重新导出 Excel。",
+    BACKUP_FILE_MISSING: "请确认备份 zip 是否被手动移动或删除。",
+    ORPHAN_FILE_FOUND: "请人工确认后再手动处理，本版本不会自动删除项目文件。",
+    FAILED_SHEET_EXISTS: "请查看失败图纸的 error_code 和 message 后重试对应步骤。",
+    OPEN_ERROR_EXISTS: "建议在校核工作台处理后再交付或归档。",
+    LOW_CONFIDENCE_EXISTS: "建议抽查低可信图纸。",
+    UNREVIEWED_SHEETS_EXISTS: "这是校核进度提示，交付前建议完成确认。",
+    TEMP_CLEANUP_FILES_FOUND: "可使用安全清理临时文件。",
+    DATA_HEALTH_DRAWING_FILE_MISSING: "请确认是否完整复制了 app_data/projects 目录。",
+    DATA_HEALTH_SHEET_PREVIEW_MISSING: "可重新生成图纸页预览。",
+    DATA_HEALTH_CAD_JSON_MISSING: "可重新执行 DXF 解析。",
+    DATA_HEALTH_CAD_PREVIEW_MISSING: "可重新生成 CAD 预览。",
+    DATA_HEALTH_DWG_CONVERTED_FILE_MISSING: "可重新执行 DWG 转 DXF。",
+    DATA_HEALTH_EXPORT_FILE_MISSING: "可重新导出 Excel。",
+    DATA_HEALTH_BACKUP_FILE_MISSING: "请确认备份 zip 是否被手动移动或删除。",
+    DATA_HEALTH_ORPHAN_FILES_FOUND: "请人工确认后再手动处理，本版本不会自动删除项目文件。",
+    DATA_HEALTH_TEMP_FILES_FOUND: "可使用安全清理临时文件。",
+    DATA_HEALTH_DIRECTORY_NOT_WRITABLE: "请检查目录权限或软件所在磁盘是否只读。"
+  };
+  return errorCode ? labels[errorCode] ?? "请查看检查项详情后处理。" : "无需处理。";
 }
 
 export function formatApiError(error: unknown, fallback: string) {

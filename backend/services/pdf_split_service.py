@@ -194,6 +194,7 @@ def get_sheet_detail(db: Session, sheet_id: int) -> DrawingSheetRead:
             "issue_date": sheet.issue_date.isoformat() if sheet.issue_date else None,
             "original_file_name": original_name,
             "source_format": source_format,
+            "cad_preview_url": f"/api/sheets/{sheet.id}/cad-preview-image" if sheet.cad_preview_path else None,
         }
     )
 

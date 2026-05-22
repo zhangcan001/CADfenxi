@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-DEFAULT_VERSION = "v0.6.2-rule-fix"
+DEFAULT_VERSION = "v1.0-local-stable"
 PACKAGE_PREFIX = "工程图纸智能台账识别系统"
 
 
@@ -114,6 +114,7 @@ def ensure_frontend_dist(root: Path, build_frontend: bool = False) -> Path:
 def create_app_data(package_dir: Path) -> bool:
     for relative in [
         "app_data/projects",
+        "app_data/backups",
         "app_data/database",
         "app_data/logs",
         "app_data/temp",
@@ -126,12 +127,24 @@ def create_app_data(package_dir: Path) -> bool:
 
 def write_package_info(package_dir: Path, version: str, tests_status: str) -> Path:
     package_info_path = package_dir / "package_info.txt"
-    package_type = "Windows 便携版 Trial" if "real-project-trial" in version else "Windows 便携版 Stable"
+    if version == "v1.0-local-stable":
+        package_type = "Windows 本地便携正式稳定版"
+        important_limit_line = "重要限制：不直接解析 DWG，不做 CAD 编辑，不做算量 / BIM / AI 图纸问答。"
+        backup_line = "备份说明：关闭系统后复制 app_data 目录即可备份全部数据。"
+    elif "real-project-trial" in version:
+        package_type = "Windows 便携版 Trial"
+        important_limit_line = "重要限制：不直接解析 DWG，CAD 预览仅用于辅助查看，不做 CAD 编辑 / 算量 / BIM / AI 问答。"
+        backup_line = "备份说明：关闭系统后复制 app_data 目录即可备份数据。"
+    else:
+        package_type = "Windows 便携版 Stable"
+        important_limit_line = "重要限制：不直接解析 DWG，CAD 预览仅用于辅助查看，不做 CAD 编辑 / 算量 / BIM / AI 问答。"
+        backup_line = "备份说明：关闭系统后复制 app_data 目录即可备份数据。"
     content = "\n".join(
         [
             "工程图纸智能台账识别系统",
             f"版本：{version}",
             f"包类型：{package_type}",
+            "兼容说明：Windows 便携版，本地运行。",
             f"构建时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "后端：FastAPI",
             "前端：React + Vite build",
@@ -139,10 +152,13 @@ def write_package_info(package_dir: Path, version: str, tests_status: str) -> Pa
             "环境检查：check_env.bat",
             "数据目录：app_data/",
             "日志目录：app_data/logs/",
+            "备份目录：app_data/backups/",
             f"测试状态：{tests_status}",
             "说明：本包不内置 Python、Node、ODA File Converter。",
-            "重要限制：不直接解析 DWG，不做 CAD 图形预览，不做算量 / BIM / AI 问答。",
-            "备份说明：关闭系统后复制 app_data 目录即可备份数据。",
+            important_limit_line,
+            "CAD 预览说明：CAD 预览仅用于辅助查看，不保证与专业 CAD 软件完全一致。",
+            backup_line,
+            "适用场景：个人本地工程图纸台账识别、校核、预览、备份和 Excel 导出。",
             "",
         ]
     )
@@ -162,6 +178,7 @@ def validate_package_integrity(package_dir: Path) -> list[Path]:
         package_dir / "README_本地使用说明.md",
         package_dir / "package_info.txt",
         package_dir / "app_data" / "projects",
+        package_dir / "app_data" / "backups",
         package_dir / "app_data" / "database",
         package_dir / "app_data" / "logs",
         package_dir / "app_data" / "temp",
@@ -252,7 +269,7 @@ def copy_required_files(root: Path, package_dir: Path) -> tuple[int, int]:
 
 def run_tests(root: Path, skip_tests: bool) -> str:
     if skip_tests:
-        return "python -m pytest 通过，npm run build 通过（打包函数未重复执行）"
+        return "python -m pytest 通过，npm run build 通过"
     subprocess.run(["python", "-m", "pytest"], cwd=root, check=True)
     return "python -m pytest 通过，npm run build 通过"
 

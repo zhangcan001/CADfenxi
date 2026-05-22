@@ -209,6 +209,32 @@ textarea {
   font-size: 14px;
 }
 
+.backup-success {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.compact-steps {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.button-link {
+  width: fit-content;
+  border: 1px solid #1f6feb;
+  border-radius: 6px;
+  padding: 9px 12px;
+  color: #ffffff;
+  background: #1f6feb;
+  text-decoration: none;
+}
+
+.text-link {
+  color: #1f6feb;
+  text-decoration: none;
+}
+
 .empty-state,
 .empty-guide,
 .project-placeholder {
@@ -222,6 +248,8 @@ textarea {
 .import-panel,
 .import-result,
 .recent-files,
+.backup-panel,
+.maintenance-panel,
 .converter-panel,
 .pipeline-panel,
 .split-result,
@@ -402,8 +430,59 @@ dd {
   grid-template-columns: 120px 90px 120px minmax(150px, 1fr) 140px;
 }
 
+.file-row.backup-row {
+  grid-template-columns: 1fr 1fr minmax(180px, 1.5fr) 0.8fr 0.7fr 0.8fr auto auto auto auto;
+}
+
 .file-row.export-row {
   grid-template-columns: minmax(180px, 1fr) 150px 80px 90px 90px 90px 80px;
+}
+
+.health-result {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.file-row.health-row {
+  grid-template-columns: 76px 88px 180px minmax(150px, 1.1fr) minmax(220px, 1.5fr) minmax(220px, 1.5fr);
+}
+
+.file-row.health-row.info {
+  border-color: #c7d7f2;
+  background: #f5f8ff;
+}
+
+.file-row.health-row.warning {
+  border-color: #f1d899;
+  background: #fffaf0;
+}
+
+.file-row.health-row.error {
+  border-color: #efc8c8;
+  background: #fff7f7;
+}
+
+.health-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.health-group-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #dfe7f2;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+.health-group-card strong {
+  color: #26384d;
 }
 
 .export-check {
@@ -707,6 +786,75 @@ select {
   max-height: 70vh;
 }
 
+.cad-preview-viewer {
+  display: grid;
+  gap: 10px;
+}
+
+.cad-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #e1e7ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.cad-preview-toolbar button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.cad-preview-scale {
+  color: #526276;
+  font-size: 13px;
+}
+
+.cad-preview-canvas {
+  position: relative;
+  min-height: 440px;
+  max-height: 70vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #f8fafc;
+  touch-action: none;
+  cursor: grab;
+}
+
+.cad-preview-canvas.is-dragging {
+  cursor: grabbing;
+}
+
+.cad-preview-canvas img {
+  width: auto;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+  transform-origin: center center;
+  user-select: none;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cad-preview-loading {
+  position: absolute;
+  z-index: 1;
+}
+
+.cad-preview-message {
+  width: min(520px, calc(100% - 32px));
+  display: grid;
+  gap: 6px;
+}
+
 .detail-readonly {
   display: grid;
   gap: 14px;
@@ -824,6 +972,7 @@ select {
 
   .health-strip,
   .summary-grid,
+  .health-group-grid,
   .ledger-filters,
   .review-layout,
   .review-bottom,
@@ -831,6 +980,7 @@ select {
   .file-row,
   .file-row.run-row,
   .file-row.export-row,
+  .file-row.health-row,
   .pipeline-result .file-row,
   .issue-row {
     grid-template-columns: 1fr;
@@ -843,5 +993,18 @@ select {
   .preview-columns {
     flex-direction: column;
     grid-template-columns: 1fr;
+  }
+
+  .cad-preview-toolbar {
+    align-items: stretch;
+  }
+
+  .cad-preview-toolbar button,
+  .cad-preview-scale {
+    width: 100%;
+  }
+
+  .cad-preview-canvas {
+    min-height: 320px;
   }
 }

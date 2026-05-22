@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-APP_VERSION = "v0.6.2-rule-fix"
+APP_VERSION = "v1.0-local-stable"
 DEFAULT_PORT = 8000
 HEALTH_TIMEOUT_SECONDS = 45
 MIN_PYTHON_VERSION = (3, 11)
