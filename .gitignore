@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+app_data/database/*.db
+app_data/database/*.db-*
+app_data/logs/*
+!app_data/logs/.gitkeep
+app_data/projects/project_*/
+app_data/temp/
+
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+release/
+
+# Local/manual real DXF smoke samples may contain project drawings.
+samples/manual_dxf_smoke_v0_2/*.dxf
+!samples/manual_dxf_smoke_v0_2/README.md
+
+# Local/manual CAD batch samples for v0.3.3.
+samples/manual_cad_batch_v0_3_3/*
+!samples/manual_cad_batch_v0_3_3/README.md
+
+# Local real project trial samples may contain confidential drawings.
+samples/real_project_trial_v0_5/*
+!samples/real_project_trial_v0_5/README.md
