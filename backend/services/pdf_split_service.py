@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pymupdf as fitz
@@ -20,6 +21,8 @@ from backend.schemas.drawing_sheet import (
 )
 from backend.services import preview_service
 
+logger = logging.getLogger(__name__)
+
 
 def split_file(db: Session, file_id: int) -> FileSplitResult:
     drawing_file = db.get(DrawingFile, file_id)
@@ -41,7 +44,8 @@ def split_file(db: Session, file_id: int) -> FileSplitResult:
     source_path = settings.root_dir / drawing_file.storage_path
     try:
         document = fitz.open(source_path)
-    except Exception as exc:
+    except (OSError, RuntimeError, fitz.FileDataError) as exc:
+        logger.warning("PDF open failed file_id=%s path=%s: %s", drawing_file.id, source_path, exc)
         drawing_file.status = "failed"
         drawing_file.error_code = "PDF_OPEN_FAILED"
         drawing_file.error_message = str(exc)[:500]
@@ -85,7 +89,8 @@ def split_file(db: Session, file_id: int) -> FileSplitResult:
                 sheet.preview_path = preview_path
                 sheet.thumbnail_path = thumbnail_path
                 sheet.status = "preprocessed"
-            except Exception as exc:
+            except (OSError, RuntimeError, ValueError) as exc:
+                logger.warning("PDF render failed sheet_id=%s page=%s: %s", sheet.id, page_index + 1, exc)
                 sheet.status = "failed"
                 sheet.error_code = "PDF_RENDER_FAILED"
                 sheet.error_message = str(exc)[:500]

@@ -1,7 +1,11 @@
+import logging
 import sqlite3
 from collections.abc import Generator
+from pathlib import Path
 
-from sqlalchemy import create_engine
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from backend.core.config import settings
@@ -17,81 +21,53 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+logger = logging.getLogger(__name__)
+
 
 def init_database() -> None:
     settings.ensure_storage()
     with sqlite3.connect(settings.database_path) as connection:
         connection.execute("PRAGMA journal_mode=WAL;")
-    import backend.models.drawing_issue  # noqa: F401
-    import backend.models.drawing_file  # noqa: F401
-    import backend.models.drawing_sheet  # noqa: F401
-    import backend.models.converter_setting  # noqa: F401
-    import backend.models.cad_conversion_run  # noqa: F401
-    import backend.models.export_record  # noqa: F401
-    import backend.models.field_evidence  # noqa: F401
-    import backend.models.field_value  # noqa: F401
-    import backend.models.import_batch  # noqa: F401
-    import backend.models.project  # noqa: F401
-    import backend.models.recognition_candidate  # noqa: F401
-    import backend.models.recognition_run  # noqa: F401
-    import backend.models.review_audit_log  # noqa: F401
+    import backend.models.cad_conversion_run
+    import backend.models.converter_setting
+    import backend.models.drawing_file
+    import backend.models.drawing_issue
+    import backend.models.drawing_sheet
+    import backend.models.export_record
+    import backend.models.field_evidence
+    import backend.models.field_value
+    import backend.models.import_batch
+    import backend.models.project
+    import backend.models.recognition_candidate
+    import backend.models.recognition_run
+    import backend.models.review_audit_log
 
     Base.metadata.create_all(bind=engine)
-    ensure_lightweight_migrations()
+    apply_alembic_migrations()
 
 
-def ensure_lightweight_migrations() -> None:
-    # Deprecated: new schema changes should use Alembic (see ``alembic.ini`` and
-    # ``backend/migrations/``). This function is kept for compatibility with
-    # existing local databases that have not yet had Alembic stamped on them.
-    with sqlite3.connect(settings.database_path) as connection:
-        file_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(drawing_files);").fetchall()
-        }
-        if file_columns and "error_code" not in file_columns:
-            connection.execute("ALTER TABLE drawing_files ADD COLUMN error_code VARCHAR(64);")
-        if file_columns and "source_format" not in file_columns:
-            connection.execute(
-                "ALTER TABLE drawing_files "
-                "ADD COLUMN source_format VARCHAR(20) NOT NULL DEFAULT 'pdf';"
-            )
-        if file_columns and "parse_status" not in file_columns:
-            connection.execute("ALTER TABLE drawing_files ADD COLUMN parse_status VARCHAR(32);")
-        if file_columns and "parse_error_code" not in file_columns:
-            connection.execute(
-                "ALTER TABLE drawing_files ADD COLUMN parse_error_code VARCHAR(64);"
-            )
-        if file_columns and "parse_error_message" not in file_columns:
-            connection.execute("ALTER TABLE drawing_files ADD COLUMN parse_error_message TEXT;")
-        if file_columns and "converted_format" not in file_columns:
-            connection.execute("ALTER TABLE drawing_files ADD COLUMN converted_format VARCHAR(20);")
-        if file_columns and "converted_file_path" not in file_columns:
-            connection.execute("ALTER TABLE drawing_files ADD COLUMN converted_file_path TEXT;")
-        if file_columns and "convert_status" not in file_columns:
-            connection.execute("ALTER TABLE drawing_files ADD COLUMN convert_status VARCHAR(32);")
-        if file_columns and "convert_error_code" not in file_columns:
-            connection.execute("ALTER TABLE drawing_files ADD COLUMN convert_error_code VARCHAR(64);")
-        if file_columns and "convert_error_message" not in file_columns:
-            connection.execute("ALTER TABLE drawing_files ADD COLUMN convert_error_message TEXT;")
+def apply_alembic_migrations() -> None:
+    config = alembic_config()
+    if config is None:
+        return
+    inspector = inspect(engine)
+    try:
+        if "alembic_version" in inspector.get_table_names():
+            command.upgrade(config, "head")
+        else:
+            command.stamp(config, "head")
+    except Exception:
+        logger.exception("Alembic migration failed; database left in current state")
 
-        sheet_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(drawing_sheets);").fetchall()
-        }
-        if sheet_columns and "title_crop_bbox" not in sheet_columns:
-            connection.execute("ALTER TABLE drawing_sheets ADD COLUMN title_crop_bbox TEXT;")
-        if sheet_columns and "title_crop_status" not in sheet_columns:
-            connection.execute(
-                "ALTER TABLE drawing_sheets "
-                "ADD COLUMN title_crop_status VARCHAR(32) NOT NULL DEFAULT 'pending';"
-            )
-        if sheet_columns and "title_crop_error_code" not in sheet_columns:
-            connection.execute(
-                "ALTER TABLE drawing_sheets ADD COLUMN title_crop_error_code VARCHAR(64);"
-            )
-        if sheet_columns and "title_crop_error_message" not in sheet_columns:
-            connection.execute(
-                "ALTER TABLE drawing_sheets ADD COLUMN title_crop_error_message TEXT;"
-            )
+
+def alembic_config() -> Config | None:
+    ini_path = settings.root_dir / "alembic.ini"
+    if not ini_path.exists():
+        return None
+    config = Config(str(ini_path))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{settings.database_path}")
+    config.set_main_option("script_location", str(settings.root_dir / "backend" / "migrations"))
+    return config
 
 
 def get_db() -> Generator[Session, None, None]:

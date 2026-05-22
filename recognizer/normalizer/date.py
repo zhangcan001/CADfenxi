@@ -1,5 +1,5 @@
-from datetime import date
 import re
+from datetime import date
 
 
 def normalize_issue_date(value: str) -> str | None:

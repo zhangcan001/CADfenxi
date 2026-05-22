@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+import logging
+from datetime import UTC, datetime
 from pathlib import Path
 
 import ezdxf
@@ -19,6 +20,8 @@ from recognizer.cad_engine.cad_json_writer import (
 )
 from recognizer.cad_engine.dxf_loader import DxfLoadError, load_dxf_document
 from recognizer.cad_engine.entity_extractor import extract_cad_entities
+
+logger = logging.getLogger(__name__)
 
 
 def parse_dxf_file(db: Session, file_id: int) -> CadParseResult:
@@ -121,7 +124,7 @@ def parse_prepared_dxf(
     drawing_file: DrawingFile,
     sheet: DrawingSheet,
 ) -> CadParseResult:
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     source_path = settings.root_dir / (
         drawing_file.converted_file_path
         if drawing_file.source_format == "dwg" and drawing_file.converted_file_path
@@ -177,7 +180,8 @@ def parse_prepared_dxf(
         )
     except DxfLoadError as exc:
         return failed_parse_result(db, drawing_file, sheet, started_at, exc.error_code, exc.message)
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError, ezdxf.DXFError) as exc:
+        logger.exception("DXF parse failed file_id=%s sheet_id=%s", drawing_file.id, sheet.id)
         return failed_parse_result(
             db, drawing_file, sheet, started_at, "DXF_PARSE_FAILED", str(exc)[:500]
         )

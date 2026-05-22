@@ -1,6 +1,5 @@
 import re
 
-
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 WHITESPACE = re.compile(r"\s+")
 MTEXT_FORMAT_GROUP = re.compile(r"\{\\[^;{}]*;([^{}]*)\}")

@@ -1,25 +1,23 @@
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from alembic import context
-
+import backend.models.cad_conversion_run
+import backend.models.converter_setting
+import backend.models.drawing_file
+import backend.models.drawing_issue
+import backend.models.drawing_sheet
+import backend.models.export_record
+import backend.models.field_evidence
+import backend.models.field_value
+import backend.models.import_batch
+import backend.models.project
+import backend.models.recognition_candidate
+import backend.models.recognition_run
+import backend.models.review_audit_log  # noqa: F401
 from backend.core.config import settings as app_settings
 from backend.core.database import Base
-import backend.models.cad_conversion_run  # noqa: F401
-import backend.models.converter_setting  # noqa: F401
-import backend.models.drawing_file  # noqa: F401
-import backend.models.drawing_issue  # noqa: F401
-import backend.models.drawing_sheet  # noqa: F401
-import backend.models.export_record  # noqa: F401
-import backend.models.field_evidence  # noqa: F401
-import backend.models.field_value  # noqa: F401
-import backend.models.import_batch  # noqa: F401
-import backend.models.project  # noqa: F401
-import backend.models.recognition_candidate  # noqa: F401
-import backend.models.recognition_run  # noqa: F401
-import backend.models.review_audit_log  # noqa: F401
-
 
 config = context.config
 

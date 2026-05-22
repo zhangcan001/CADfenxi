@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from typing import Callable
+import logging
+from collections.abc import Callable
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -17,9 +18,9 @@ from backend.schemas.cad_pipeline import (
     CadPipelineItem,
     CadPipelineRequest,
     CadPipelineResponse,
+    CadPipelineStatus,
     CadPipelineStepName,
     CadPipelineStepResult,
-    CadPipelineStatus,
     CadPipelineSummary,
 )
 from backend.services import (
@@ -30,6 +31,8 @@ from backend.services import (
     fusion_service,
 )
 from recognizer.cad_engine.cad_json_writer import cad_parse_output_path, read_cad_json
+
+logger = logging.getLogger(__name__)
 
 
 StepHandler = Callable[
@@ -351,6 +354,7 @@ def run_parse_step(
             items.append(item)
             errors.append(error_for_item(drawing_file.id, sheet.id, drawing_file.original_name, "parse_dxf", item))
         except Exception as exc:
+            logger.exception("Pipeline parse_dxf failed file_id=%s sheet_id=%s", drawing_file.id, sheet.id)
             db.rollback()
             failed_count += 1
             item = item_for_file(
@@ -434,6 +438,7 @@ def run_candidate_step(
             items.append(item)
             errors.append(error_for_item(drawing_file.id, sheet.id, drawing_file.original_name, "generate_candidates", item))
         except Exception as exc:
+            logger.exception("Pipeline generate_candidates failed file_id=%s sheet_id=%s", drawing_file.id, sheet.id)
             db.rollback()
             failed_count += 1
             item = item_for_file(
@@ -505,6 +510,7 @@ def run_fusion_step(
             items.append(item)
             errors.append(error_for_item(drawing_file.id, sheet.id, drawing_file.original_name, "fuse_fields", item))
         except Exception as exc:
+            logger.exception("Pipeline fuse_fields failed file_id=%s sheet_id=%s", drawing_file.id, sheet.id)
             db.rollback()
             failed_count += 1
             item = item_for_file(
@@ -708,7 +714,8 @@ def cad_parse_empty(sheet: DrawingSheet) -> bool:
         return False
     try:
         counts = read_cad_json(output_path).get("counts", {})
-    except Exception:
+    except (OSError, ValueError) as exc:
+        logger.warning("Failed reading CAD parse output sheet_id=%s: %s", sheet.id, exc)
         return False
     return (
         int(counts.get("text_count", 0) or 0) == 0
@@ -734,7 +741,7 @@ def is_converted(drawing_file: DrawingFile) -> bool:
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def duration(started_at: datetime, finished_at: datetime) -> float:

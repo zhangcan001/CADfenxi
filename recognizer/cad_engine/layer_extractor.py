@@ -3,12 +3,12 @@ def extract_layers(document) -> list[str]:
     seen: set[str] = set()
     try:
         layers = document.layers
-    except Exception:
+    except AttributeError:
         return names
     for layer in layers:
         try:
             name = str(layer.dxf.name)
-        except Exception:
+        except AttributeError:
             continue
         if name not in seen:
             seen.add(name)

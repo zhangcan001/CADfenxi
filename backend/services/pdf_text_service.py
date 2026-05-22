@@ -1,5 +1,6 @@
 import json
-from datetime import datetime, timezone
+import logging
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -13,6 +14,8 @@ from backend.schemas.recognition_run import BatchRecognitionResult, RecognitionR
 from backend.services import issue_service, recognition_run_service
 from recognizer.pdf_engine.text_extractor import extract_page_text
 
+logger = logging.getLogger(__name__)
+
 
 def extract_text_for_sheet(db: Session, sheet_id: int) -> RecognitionRunResult:
     sheet = db.get(DrawingSheet, sheet_id)
@@ -22,7 +25,7 @@ def extract_text_for_sheet(db: Session, sheet_id: int) -> RecognitionRunResult:
     if drawing_file is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF 文件不存在")
 
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     source_path = settings.root_dir / drawing_file.storage_path
     try:
         result = extract_page_text(source_path, sheet.page_no)
@@ -56,7 +59,8 @@ def extract_text_for_sheet(db: Session, sheet_id: int) -> RecognitionRunResult:
         )
     except IndexError:
         return failed_result(db, sheet, started_at, "PDF_PAGE_NOT_FOUND", "PDF 页码不存在")
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
+        logger.warning("PDF text extract failed sheet_id=%s: %s", sheet.id, exc)
         return failed_result(db, sheet, started_at, "PDF_OPEN_FAILED", str(exc)[:500])
 
 
@@ -89,7 +93,7 @@ def save_text_result(sheet: DrawingSheet, text: str, blocks: list[dict]) -> str:
         "text": text,
         "blocks": blocks,
         "engine": "pymupdf",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return str(output.relative_to(settings.root_dir))

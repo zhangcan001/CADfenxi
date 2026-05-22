@@ -3,7 +3,6 @@ from recognizer.cad_engine.tag_mapper import field_for_tag
 from recognizer.filename_parser.parser import parse_filename
 from recognizer.normalizer.discipline import infer_discipline
 
-
 CAD_SOURCE_TYPES = ["cad_text", "cad_mtext", "cad_block_attr", "cad_layer", "cad_filename"]
 
 

@@ -1,6 +1,6 @@
+import contextlib
 import hashlib
 import re
-import shutil
 from pathlib import Path
 from uuid import uuid4
 
@@ -112,7 +112,5 @@ def remove_saved_files(paths: list[Path]) -> None:
 def remove_original_dir_if_empty(project_id: int) -> None:
     directory = project_original_dir(project_id)
     if directory.exists():
-        try:
+        with contextlib.suppress(OSError):
             directory.rmdir()
-        except OSError:
-            pass

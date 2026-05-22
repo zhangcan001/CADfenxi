@@ -1,6 +1,5 @@
 import re
 
-
 PREFIX_RULES = [
     ("建筑", ["建施", "建筑", "JZ", "JS", "ARCH", "A"]),
     ("结构", ["结施", "结构", "JG", "GS", "STR", "STRUCT", "S"]),

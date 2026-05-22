@@ -1,6 +1,6 @@
+import logging
 from collections import defaultdict
 from datetime import date
-import logging
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, select
@@ -18,11 +18,11 @@ from backend.schemas.drawing_issue import DrawingIssueRead
 from backend.schemas.field_evidence import FieldEvidenceRead
 from backend.schemas.field_value import BatchFusionResult, FieldValueRead, SheetFusionResult
 from backend.services import cad_sheet_service, issue_service, scoring_service
+from recognizer.cad_engine.cad_json_writer import cad_parse_output_path, read_cad_json
 from recognizer.cad_engine.cad_text_rules import (
     is_suspect_drawing_name_candidate,
     is_suspect_drawing_no_candidate,
 )
-from recognizer.cad_engine.cad_json_writer import cad_parse_output_path, read_cad_json
 from recognizer.fusion.field_fusion import choose_field_value, value_key
 
 CORE_FIELDS = ["drawing_no", "drawing_name", "discipline", "version", "issue_date"]

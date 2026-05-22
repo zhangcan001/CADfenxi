@@ -1,8 +1,8 @@
+import shutil
 import subprocess
 import sys
-import shutil
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -181,7 +181,7 @@ def convert_dwg_file(db: Session, file_id: int) -> DwgConvertResult:
     converted_dir.mkdir(parents=True, exist_ok=True)
     target_path = unique_target_path(converted_dir, drawing_file)
     temp_expected = converted_dir / f"{source_path.stem}.dxf"
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
 
     run = CadConversionRun(
         project_id=drawing_file.project_id,
@@ -251,7 +251,7 @@ def convert_dwg_file(db: Session, file_id: int) -> DwgConvertResult:
             produced.replace(target_path)
 
         run.status = "success"
-        run.finished_at = datetime.now(timezone.utc)
+        run.finished_at = datetime.now(UTC)
         run.target_path = relative_to_root(target_path)
         if matched.warning_code:
             run.error_code = matched.warning_code
@@ -535,7 +535,7 @@ def fail_conversion(
     message: str,
 ) -> DwgConvertResult:
     run.status = "failed"
-    run.finished_at = datetime.now(timezone.utc)
+    run.finished_at = datetime.now(UTC)
     run.error_code = error_code
     run.error_message = message
     drawing_file.convert_status = "failed"

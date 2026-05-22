@@ -1,5 +1,6 @@
 import json
-from datetime import datetime, timezone
+import logging
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -11,6 +12,8 @@ from backend.models.import_batch import ImportBatch
 from backend.schemas.recognition_run import BatchRecognitionResult, RecognitionRunResult
 from backend.services import issue_service, recognition_run_service
 from recognizer.ocr_engine.mock_ocr import MockOcrEngine
+
+logger = logging.getLogger(__name__)
 
 
 def ocr_title_for_sheet(db: Session, sheet_id: int) -> RecognitionRunResult:
@@ -31,7 +34,7 @@ def ocr_title_for_sheet(db: Session, sheet_id: int) -> RecognitionRunResult:
         )
 
     engine = MockOcrEngine()
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     try:
         result = engine.recognize(str(image_path))
         output_path = save_ocr_result(sheet, result.text, result.items, engine.engine_name)
@@ -62,7 +65,8 @@ def ocr_title_for_sheet(db: Session, sheet_id: int) -> RecognitionRunResult:
             error_code=error_code,
             error_message="OCR 未识别到文字" if error_code else None,
         )
-    except Exception as exc:
+    except (OSError, ValueError, RuntimeError) as exc:
+        logger.exception("OCR failed sheet_id=%s", sheet.id)
         recognition_run_service.create_run(
             db,
             project_id=sheet.project_id,
@@ -138,7 +142,7 @@ def save_ocr_result(sheet: DrawingSheet, text: str, items: list, engine_name: st
             for item in items
         ],
         "engine": engine_name,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return str(output.relative_to(settings.root_dir))

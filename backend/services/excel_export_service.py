@@ -7,6 +7,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.core.config import settings
 from backend.models.drawing_file import DrawingFile
 from backend.models.drawing_issue import DrawingIssue
 from backend.models.drawing_sheet import DrawingSheet
@@ -15,7 +16,6 @@ from backend.models.project import Project
 from backend.models.recognition_candidate import RecognitionCandidate
 from backend.models.review_audit_log import ReviewAuditLog
 from backend.schemas.export import ExportCheckResult
-from backend.core.config import settings
 from backend.services.sheet_query_service import issue_counts_subquery
 
 SYSTEM_NAME = "工程图纸智能台账识别系统"

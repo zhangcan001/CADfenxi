@@ -1,0 +1,53 @@
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = [
+    "app_data",
+    "release",
+    "samples",
+    "backend/migrations/versions",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "SIM", # simplify
+    "RUF", # ruff-specific
+]
+ignore = [
+    "E501",   # line too long (formatter handles)
+    "B008",   # function call in default arg (FastAPI Depends pattern)
+    "SIM108", # ternary preference is style
+    "RUF001", # ambiguous fullwidth chars are intentional in Chinese strings
+    "RUF002", # ambiguous fullwidth chars in docstrings
+    "RUF003", # ambiguous fullwidth chars in comments
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "F401"]
+"backend/models/*" = ["F821"]  # SQLAlchemy forward refs in Mapped["..."] strings
+"backend/core/database.py" = ["E402", "F401"]  # deferred model imports inside init_database
+"scripts/*" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+ignore_missing_imports = true
+files = ["backend", "recognizer"]
+exclude = [
+    "app_data",
+    "release",
+    "samples",
+    "backend/migrations",
+]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = true

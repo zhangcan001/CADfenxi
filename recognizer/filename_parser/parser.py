@@ -1,11 +1,10 @@
-from pathlib import Path
 import re
+from pathlib import Path
 
 from recognizer.normalizer.date import normalize_issue_date
 from recognizer.normalizer.discipline import infer_discipline
 from recognizer.normalizer.drawing_no import is_supported_drawing_no, normalize_drawing_no
 from recognizer.normalizer.version import normalize_version
-
 
 PARSER_NAME = "filename_parser"
 PARSER_VERSION = "0.1.0"

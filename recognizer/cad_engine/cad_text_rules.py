@@ -1,4 +1,3 @@
-import re
 
 from recognizer.filename_parser.parser import find_date, find_drawing_no, find_version
 from recognizer.normalizer.date import normalize_issue_date

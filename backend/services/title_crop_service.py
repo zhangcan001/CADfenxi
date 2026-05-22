@@ -1,4 +1,4 @@
-import json
+import logging
 from pathlib import Path
 
 import pymupdf as fitz
@@ -14,6 +14,8 @@ from backend.schemas.drawing_sheet import (
     TitleCropBBox,
     TitleCropResult,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_bottom_right_bbox(width: int, height: int, ratio: float = 0.30) -> TitleCropBBox:
@@ -61,7 +63,8 @@ def crop_title_block_for_sheet(db: Session, sheet_id: int) -> TitleCropResult:
             title_crop_path=crop_path,
             title_crop_bbox=bbox,
         )
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
+        logger.warning("Title crop failed sheet_id=%s: %s", sheet.id, exc)
         mark_failed(db, sheet, "CROP_FAILED", str(exc)[:500])
         return TitleCropResult(
             sheet_id=sheet.id,

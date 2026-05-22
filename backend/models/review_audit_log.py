@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,12 +22,12 @@ class ReviewAuditLog(Base):
     sheet_id: Mapped[int] = mapped_column(
         ForeignKey("drawing_sheets.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    field_name: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    field_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     action_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     operator: Mapped[str] = mapped_column(String(100), nullable=False, default="default_user")
-    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

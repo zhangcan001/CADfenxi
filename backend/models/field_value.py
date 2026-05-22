@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -25,12 +24,12 @@ class FieldValue(Base):
     )
     field_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     raw_value: Mapped[str] = mapped_column(Text, nullable=False)
-    normalized_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    normalized_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     display_value: Mapped[str] = mapped_column(Text, nullable=False)
     final_source: Mapped[str] = mapped_column(String(32), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     is_reviewed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

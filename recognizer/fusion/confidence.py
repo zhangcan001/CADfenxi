@@ -11,7 +11,7 @@ def calculate_confidence_score(field_confidences: dict[str, float]) -> int:
     score = 0.0
     for field_name, weight in FIELD_WEIGHTS.items():
         score += float(field_confidences.get(field_name, 0)) * weight
-    return int(round(max(0, min(100, score))))
+    return round(max(0, min(100, score)))
 
 
 def calculate_trust_level(

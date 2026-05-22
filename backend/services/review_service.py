@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, select
@@ -135,7 +135,7 @@ def confirm_sheet(db: Session, sheet_id: int, force: bool = False, note: str | N
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"message": "存在阻断问题，暂不能确认", "errors": [issue.issue_code for issue in errors]},
         )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for field_value in field_values(db, sheet.id):
         if field_value.field_name in CORE_FIELDS and field_value.display_value:
             field_value.is_reviewed = True
@@ -262,7 +262,7 @@ def upsert_field_value(
     display = normalized or value
     existing = db.scalar(select(FieldValue).where(FieldValue.sheet_id == sheet.id, FieldValue.field_name == field_name))
     old_value = existing.display_value if existing else None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if existing is None:
         existing = FieldValue(
             project_id=sheet.project_id,

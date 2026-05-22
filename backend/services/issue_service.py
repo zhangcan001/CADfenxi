@@ -1,5 +1,5 @@
+from datetime import UTC, datetime
 from math import ceil
-from datetime import datetime, timezone
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
@@ -220,7 +220,7 @@ def update_issue_status(db: Session, issue_id: int, new_status: str, note: str |
     sheet = db.get(DrawingSheet, issue.sheet_id)
     old_status = issue.status
     issue.status = "open" if new_status == "reopened" else new_status
-    issue.resolved_at = datetime.now(timezone.utc) if new_status == "resolved" else None
+    issue.resolved_at = datetime.now(UTC) if new_status == "resolved" else None
     action_type = {
         "resolved": "issue_resolved",
         "ignored": "issue_ignored",

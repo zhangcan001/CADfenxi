@@ -29,7 +29,7 @@ def load_dxf_document(file_path: str) -> DxfLoadResult:
             document, auditor = recover.readfile(path)
         except ezdxf.DXFVersionError as exc:
             raise DxfLoadError("DXF_UNSUPPORTED_VERSION", "DXF 版本不受支持。") from exc
-        except Exception as exc:
+        except (ezdxf.DXFError, OSError, ValueError) as exc:
             raise DxfLoadError("DXF_PARSE_FAILED", "DXF 解析失败。") from exc
         warnings = ["DXF_RECOVERED"] if getattr(auditor, "has_errors", False) else []
         return DxfLoadResult(document=document, warnings=warnings)
@@ -37,5 +37,5 @@ def load_dxf_document(file_path: str) -> DxfLoadResult:
         raise DxfLoadError("DXF_UNSUPPORTED_VERSION", "DXF 版本不受支持。") from exc
     except OSError as exc:
         raise DxfLoadError("DXF_OPEN_FAILED", "DXF 文件无法打开。") from exc
-    except Exception as exc:
+    except (ezdxf.DXFError, ValueError) as exc:
         raise DxfLoadError("DXF_OPEN_FAILED", "DXF 文件无法打开。") from exc

@@ -42,7 +42,7 @@ def choose_field_value(candidates: list) -> FusionChoice | None:
     for candidate in usable:
         groups.setdefault(value_key(candidate), []).append(candidate)
 
-    best_key, best_group = min(
+    _best_key, best_group = min(
         groups.items(),
         key=lambda item: (
             min(SOURCE_PRIORITY.get(candidate.source_type, 99) for candidate in item[1]),

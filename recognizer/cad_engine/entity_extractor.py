@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import ezdxf
 
@@ -25,7 +25,7 @@ def extract_cad_entities(
     for entity in modelspace:
         try:
             entity_type = entity.dxftype()
-        except Exception:
+        except AttributeError:
             continue
         if entity_type == "TEXT":
             parsed_text = extract_text(entity)
@@ -67,5 +67,5 @@ def extract_cad_entities(
             "layer_count": len(layers),
         },
         "warnings": warnings or [],
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }

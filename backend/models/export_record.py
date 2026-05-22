@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -21,8 +20,8 @@ class ExportRecord(Base):
     issue_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     include_unconfirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     has_open_errors: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    filter_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    warning_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    filter_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    warning_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

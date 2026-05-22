@@ -1,6 +1,5 @@
 import re
 
-
 COMPONENT_NO_PATTERN = re.compile(
     r"^(?:KZ|L|KL|WKL|M|C|D|W|MQ|GZ|CT|YBZ|门|窗)-?\d+$",
     re.IGNORECASE,

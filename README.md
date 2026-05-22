@@ -65,7 +65,7 @@ v0.6.2 是识别规则小修与低风险优化版本。本版本不新增功能�
 - 小幅增强专业判断关键词和 CAD tag 映射。
 - 补充年月、紧凑日期等日期格式标准化，非法日期保持低可信。
 - 优化低可信、仅文件名来源、OCR/PDF 空文本和日期异常提示。
-- 新增规则小修案例表和质量复测报告：`docs/RULE_FIX_CASES_v0.6.2.md`、`docs/RULE_FIX_REPORT_v0.6.2.md`。
+- 新增规则小修案例表和质量复测报告：`docs/archive/RULE_FIX_CASES_v0.6.2.md`、`docs/archive/RULE_FIX_REPORT_v0.6.2.md`。
 
 生成 v0.6.2 便携包：
 
@@ -89,7 +89,7 @@ v0.6.1 是个人本地稳定版真实使用问题修复版本。本版本不新�
 - 回归 CAD pipeline 批量流程、重复执行幂等性和错误汇总。
 - 回归校核工作台保存、确认、批量确认安全规则。
 - 回归人工确认字段保护和 Excel 导出一致性。
-- 新增稳定版真实使用问题修复记录：`docs/LOCAL_STABLE_FIX_ISSUES_v0.6.1.md`。
+- 新增稳定版真实使用问题修复记录：`docs/archive/LOCAL_STABLE_FIX_ISSUES_v0.6.1.md`。
 
 ## 四、v0.5.5-stability 真实项目全流程稳定性回归
 
@@ -100,7 +100,7 @@ v0.5.5 是真实项目全流程稳定性回归版本。重点验证 portable 启
 - 回归 DWG mock 转换后进入 DXF 识别流程。
 - 回归 CAD pipeline 混合批次处理。
 - 回归人工确认字段保护和 Excel 导出一致性。
-- 新增全流程稳定性报告：`docs/FULL_FLOW_STABILITY_REPORT_v0.5.5.md`。
+- 新增全流程稳定性报告：`docs/archive/FULL_FLOW_STABILITY_REPORT_v0.5.5.md`。
 
 ## 五、v0.5.4-excel-delivery 真实项目交付台账复核与模板微调
 
@@ -109,7 +109,7 @@ v0.5.4 是真实项目交付台账复核与模板微调版本。重点优化 Exc
 - 问题清单增加问题类型中文说明，并保留英文 code 便于追溯。
 - 图纸编号、图纸名称、原始文件名、问题描述、建议处理、备注等关键列宽按交付使用微调。
 - 导出前检查增加汇总式提示文案，说明未校核、缺字段、错误、警告和 D 级图纸数量。
-- 新增真实项目交付台账复核报告：`docs/EXCEL_DELIVERY_REVIEW_v0.5.4.md`。
+- 新增真实项目交付台账复核报告：`docs/archive/EXCEL_DELIVERY_REVIEW_v0.5.4.md`。
 
 ## 六、v0.5.3-excel-template Excel 导出台账模板与交付格式优化
 
@@ -140,8 +140,8 @@ v0.5 是真实项目试用与问题闭环阶段。重点不是新增功能，而
 - 先使用 10～50 张图纸的小型真实项目。
 - 覆盖 PDF / DXF / DWG，DWG 仍需外部工具转 DXF。
 - 不建议一次性导入超大项目。
-- 发现问题请记录到 `docs/REAL_PROJECT_TRIAL_ISSUES_v0.5.md`。
-- 试用统计请记录到 `docs/REAL_PROJECT_TRIAL_REPORT_v0.5.md`。
+- 发现问题请记录到 `docs/archive/REAL_PROJECT_TRIAL_ISSUES_v0.5.md`。
+- 试用统计请记录到 `docs/archive/REAL_PROJECT_TRIAL_REPORT_v0.5.md`。
 - 当前仍不做 CAD 图形预览。
 - 当前仍不做算量 / BIM / AI 问答。
 
@@ -156,7 +156,7 @@ v0.5.1 是真实项目识别质量专项优化版本。重点优化图号、图�
 质量优化报告：
 
 ```text
-docs/REAL_PROJECT_QUALITY_OPTIMIZATION_v0.5.1.md
+docs/archive/REAL_PROJECT_QUALITY_OPTIMIZATION_v0.5.1.md
 ```
 
 真实样本本地目录：
@@ -198,13 +198,13 @@ release/工程图纸智能台账识别系统-v0.4.5-portable-stable/
 最终发布检查清单：
 
 ```text
-docs/RELEASE_CHECKLIST_v0.4.5-portable-stable.md
+docs/archive/RELEASE_CHECKLIST_v0.4.5-portable-stable.md
 ```
 
 最终验收报告：
 
 ```text
-docs/FINAL_ACCEPTANCE_v0.4.5-portable-stable.md
+docs/archive/FINAL_ACCEPTANCE_v0.4.5-portable-stable.md
 ```
 
 ## 十一、v0.4.4-portable-rc-fix 真实用户内测问题修复
@@ -226,7 +226,7 @@ v0.4.4 重点修复 portable-rc 真实内测启动问题，不新增识别能力
 用户内测问题记录：
 
 ```text
-docs/PORTABLE_USER_TEST_ISSUES_v0.4.4.md
+docs/archive/PORTABLE_USER_TEST_ISSUES_v0.4.4.md
 ```
 
 生成修复版便携包：
@@ -254,7 +254,7 @@ release/工程图纸智能台账识别系统-v0.4.3-portable-rc/
 发布检查清单：
 
 ```text
-docs/RELEASE_CHECKLIST_v0.4.3-portable-rc.md
+docs/archive/RELEASE_CHECKLIST_v0.4.3-portable-rc.md
 ```
 
 ## 十二、v0.4.2 Windows 便携包真实换机测试与启动问题修复
@@ -262,7 +262,7 @@ docs/RELEASE_CHECKLIST_v0.4.3-portable-rc.md
 v0.4.2 不新增识别功能，重点验证 v0.4.1 portable 包复制到其他 Windows 电脑、中文路径和空格路径后的启动表现。测试记录见：
 
 ```text
-docs/PORTABLE_REAL_MACHINE_TEST_v0.4.2.md
+docs/archive/PORTABLE_REAL_MACHINE_TEST_v0.4.2.md
 ```
 
 本阶段继续保持以下边界：

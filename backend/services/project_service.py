@@ -1,6 +1,6 @@
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import HTTPException, status
@@ -8,8 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.core.config import settings
-from backend.models.project import Project
 from backend.models.export_record import ExportRecord
+from backend.models.project import Project
 from backend.schemas.project import ProjectCreate, ProjectRead, ProjectStats, ProjectUpdate
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ def list_projects(db: Session) -> list[ProjectRead]:
 
 def get_project_detail(db: Session, project_id: int) -> ProjectRead:
     project = get_project_or_404(db, project_id)
-    project.last_opened_at = datetime.now(timezone.utc)
+    project.last_opened_at = datetime.now(UTC)
     db.commit()
     db.refresh(project)
     return project_to_read(project, project_stats(db, project.id))
@@ -70,7 +70,7 @@ def update_project(db: Session, project_id: int, payload: ProjectUpdate) -> Proj
     project = get_project_or_404(db, project_id)
     project.name = payload.name
     project.description = payload.description
-    project.updated_at = datetime.now(timezone.utc)
+    project.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(project)
     return project_to_read(project, project_stats(db, project.id))
