@@ -1,3 +1,5 @@
+import { apiPost } from "./client";
+
 export type TitleCropBBox = {
   x: number;
   y: number;
@@ -22,22 +24,16 @@ export type BatchTitleCropResult = {
   items: TitleCropResult[];
 };
 
-export async function cropSheetTitle(sheetId: number): Promise<TitleCropResult> {
-  const response = await fetch(`/api/sheets/${sheetId}/title-crop`, {
-    method: "POST"
+const LONG_OP_TIMEOUT_MS = 300_000;
+
+export function cropSheetTitle(sheetId: number): Promise<TitleCropResult> {
+  return apiPost<TitleCropResult>(`/api/sheets/${sheetId}/title-crop`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
   });
-  if (!response.ok) {
-    throw new Error(`Title crop failed: ${response.status}`);
-  }
-  return response.json() as Promise<TitleCropResult>;
 }
 
-export async function cropBatchTitles(batchId: number): Promise<BatchTitleCropResult> {
-  const response = await fetch(`/api/imports/${batchId}/title-crops`, {
-    method: "POST"
+export function cropBatchTitles(batchId: number): Promise<BatchTitleCropResult> {
+  return apiPost<BatchTitleCropResult>(`/api/imports/${batchId}/title-crops`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
   });
-  if (!response.ok) {
-    throw new Error(`Batch title crop failed: ${response.status}`);
-  }
-  return response.json() as Promise<BatchTitleCropResult>;
 }

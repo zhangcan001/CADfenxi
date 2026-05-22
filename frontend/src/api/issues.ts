@@ -1,3 +1,4 @@
+import { apiGet, apiPatch } from "./client";
 import type { DrawingIssue } from "./fusion";
 
 export type IssueQuery = {
@@ -18,7 +19,7 @@ export type PaginatedIssues = {
   total_pages: number;
 };
 
-export async function listProjectIssues(
+export function listProjectIssues(
   projectId: number,
   query: IssueQuery = {}
 ): Promise<PaginatedIssues> {
@@ -29,26 +30,14 @@ export async function listProjectIssues(
     }
   });
   const queryString = params.toString();
-  const response = await fetch(
+  return apiGet<PaginatedIssues>(
     `/api/projects/${projectId}/issues${queryString ? `?${queryString}` : ""}`
   );
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<PaginatedIssues>;
 }
 
-export async function updateIssue(
+export function updateIssue(
   issueId: number,
   payload: { status: string; note?: string }
 ): Promise<DrawingIssue> {
-  const response = await fetch(`/api/issues/${issueId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<DrawingIssue>;
+  return apiPatch<DrawingIssue>(`/api/issues/${issueId}`, payload);
 }

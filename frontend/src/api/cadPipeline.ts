@@ -1,4 +1,4 @@
-import { readApiError } from "./errors";
+import { apiPost } from "./client";
 
 export type CadPipelineStep =
   | "convert_dwg"
@@ -69,19 +69,12 @@ export type CadPipelineResponse = {
   errors: CadPipelineError[];
 };
 
-export async function runCadPipeline(
+export function runCadPipeline(
   batchId: number,
   payload: CadPipelineRequest
 ): Promise<CadPipelineResponse> {
-  const response = await fetch(`/api/imports/${batchId}/cad-pipeline`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
+  // Full pipeline over a batch can be very long: convert + parse + fuse for many files.
+  return apiPost<CadPipelineResponse>(`/api/imports/${batchId}/cad-pipeline`, payload, {
+    timeoutMs: 1_800_000
   });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<CadPipelineResponse>;
 }

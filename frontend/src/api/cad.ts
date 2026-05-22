@@ -1,3 +1,5 @@
+import { apiGet, apiPost } from "./client";
+
 export type DxfSheetPrepareResult = {
   file_id: number;
   sheet_id: number;
@@ -59,53 +61,35 @@ export type CadParseSummary = {
   warnings: string[];
 };
 
-export async function prepareDxfSheet(fileId: number): Promise<DxfSheetPrepareResult> {
-  const response = await fetch(`/api/files/${fileId}/prepare-dxf-sheet`, {
-    method: "POST"
+// DXF/DWG parsing can be slow on large files.
+const LONG_OP_TIMEOUT_MS = 300_000;
+
+export function prepareDxfSheet(fileId: number): Promise<DxfSheetPrepareResult> {
+  return apiPost<DxfSheetPrepareResult>(`/api/files/${fileId}/prepare-dxf-sheet`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
   });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<DxfSheetPrepareResult>;
 }
 
-export async function prepareDxfSheetsForBatch(
-  batchId: number
-): Promise<BatchDxfSheetPrepareResult> {
-  const response = await fetch(`/api/imports/${batchId}/prepare-dxf-sheets`, {
-    method: "POST"
-  });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<BatchDxfSheetPrepareResult>;
+export function prepareDxfSheetsForBatch(batchId: number): Promise<BatchDxfSheetPrepareResult> {
+  return apiPost<BatchDxfSheetPrepareResult>(
+    `/api/imports/${batchId}/prepare-dxf-sheets`,
+    undefined,
+    { timeoutMs: LONG_OP_TIMEOUT_MS }
+  );
 }
 
-export async function parseDxfFile(fileId: number): Promise<CadParseResult> {
-  const response = await fetch(`/api/files/${fileId}/parse-dxf`, {
-    method: "POST"
+export function parseDxfFile(fileId: number): Promise<CadParseResult> {
+  return apiPost<CadParseResult>(`/api/files/${fileId}/parse-dxf`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
   });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<CadParseResult>;
 }
 
-export async function parseDxfBatch(batchId: number): Promise<BatchCadParseResult> {
-  const response = await fetch(`/api/imports/${batchId}/parse-dxf`, {
-    method: "POST"
+export function parseDxfBatch(batchId: number): Promise<BatchCadParseResult> {
+  return apiPost<BatchCadParseResult>(`/api/imports/${batchId}/parse-dxf`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
   });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<BatchCadParseResult>;
 }
 
-export async function getCadParseSummary(sheetId: number): Promise<CadParseSummary> {
-  const response = await fetch(`/api/sheets/${sheetId}/cad-parse`);
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<CadParseSummary>;
+export function getCadParseSummary(sheetId: number): Promise<CadParseSummary> {
+  return apiGet<CadParseSummary>(`/api/sheets/${sheetId}/cad-parse`);
 }
-import { readApiError } from "./errors";

@@ -1,3 +1,5 @@
+import { apiGet, apiPost } from "./client";
+
 export type DrawingSheet = {
   id: number;
   project_id: number;
@@ -75,17 +77,13 @@ export type BatchSplitResult = {
   }>;
 };
 
-export async function splitImportBatch(batchId: number): Promise<BatchSplitResult> {
-  const response = await fetch(`/api/imports/${batchId}/split`, {
-    method: "POST"
+export function splitImportBatch(batchId: number): Promise<BatchSplitResult> {
+  return apiPost<BatchSplitResult>(`/api/imports/${batchId}/split`, undefined, {
+    timeoutMs: 300_000
   });
-  if (!response.ok) {
-    throw new Error(`Split failed: ${response.status}`);
-  }
-  return response.json() as Promise<BatchSplitResult>;
 }
 
-export async function listProjectSheets(
+export function listProjectSheets(
   projectId: number,
   query: SheetQuery = {}
 ): Promise<PaginatedSheets> {
@@ -96,19 +94,11 @@ export async function listProjectSheets(
     }
   });
   const queryString = params.toString();
-  const response = await fetch(
+  return apiGet<PaginatedSheets>(
     `/api/projects/${projectId}/sheets${queryString ? `?${queryString}` : ""}`
   );
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<PaginatedSheets>;
 }
 
-export async function getSheet(sheetId: number): Promise<DrawingSheet> {
-  const response = await fetch(`/api/sheets/${sheetId}`);
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<DrawingSheet>;
+export function getSheet(sheetId: number): Promise<DrawingSheet> {
+  return apiGet<DrawingSheet>(`/api/sheets/${sheetId}`);
 }

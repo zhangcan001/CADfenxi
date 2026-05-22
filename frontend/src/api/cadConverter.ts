@@ -1,4 +1,4 @@
-import { readApiError } from "./errors";
+import { apiGet, apiPatch, apiPost } from "./client";
 
 export type ConverterSetting = {
   id: number;
@@ -68,74 +68,43 @@ export type CadConversionRun = {
   created_at: string;
 };
 
-export async function getConverterSettings(): Promise<ConverterSetting[]> {
-  const response = await fetch("/api/cad/converter-settings");
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<ConverterSetting[]>;
+// DWG -> DXF conversion can take a while (default backend timeout 120s + I/O overhead).
+const CONVERT_TIMEOUT_MS = 300_000;
+
+export function getConverterSettings(): Promise<ConverterSetting[]> {
+  return apiGet<ConverterSetting[]>("/api/cad/converter-settings");
 }
 
-export async function saveConverterSettings(
+export function saveConverterSettings(
   payload: ConverterSettingPayload,
   settingId?: number
 ): Promise<ConverterSetting> {
-  const response = await fetch(
-    settingId ? `/api/cad/converter-settings/${settingId}` : "/api/cad/converter-settings",
-    {
-      method: settingId ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }
-  );
-  if (!response.ok) {
-    throw await readApiError(response);
+  if (settingId) {
+    return apiPatch<ConverterSetting>(`/api/cad/converter-settings/${settingId}`, payload);
   }
-  return response.json() as Promise<ConverterSetting>;
+  return apiPost<ConverterSetting>("/api/cad/converter-settings", payload);
 }
 
-export async function checkConverterSetting(settingId: number): Promise<ConverterCheckResult> {
-  const response = await fetch(`/api/cad/converter-settings/${settingId}/check`, {
-    method: "POST"
+export function checkConverterSetting(settingId: number): Promise<ConverterCheckResult> {
+  return apiPost<ConverterCheckResult>(`/api/cad/converter-settings/${settingId}/check`);
+}
+
+export function convertDwgFile(fileId: number): Promise<DwgConvertResult> {
+  return apiPost<DwgConvertResult>(`/api/files/${fileId}/convert-dwg-to-dxf`, undefined, {
+    timeoutMs: CONVERT_TIMEOUT_MS
   });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<ConverterCheckResult>;
 }
 
-export async function convertDwgFile(fileId: number): Promise<DwgConvertResult> {
-  const response = await fetch(`/api/files/${fileId}/convert-dwg-to-dxf`, {
-    method: "POST"
+export function convertDwgBatch(batchId: number): Promise<BatchDwgConvertResult> {
+  return apiPost<BatchDwgConvertResult>(`/api/imports/${batchId}/convert-dwg-to-dxf`, undefined, {
+    timeoutMs: CONVERT_TIMEOUT_MS
   });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<DwgConvertResult>;
 }
 
-export async function convertDwgBatch(batchId: number): Promise<BatchDwgConvertResult> {
-  const response = await fetch(`/api/imports/${batchId}/convert-dwg-to-dxf`, {
-    method: "POST"
-  });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<BatchDwgConvertResult>;
+export function listProjectConversionRuns(projectId: number): Promise<CadConversionRun[]> {
+  return apiGet<CadConversionRun[]>(`/api/projects/${projectId}/cad-conversion-runs`);
 }
 
-export async function listProjectConversionRuns(projectId: number): Promise<CadConversionRun[]> {
-  const response = await fetch(`/api/projects/${projectId}/cad-conversion-runs`);
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<CadConversionRun[]>;
-}
-
-export async function listFileConversionRuns(fileId: number): Promise<CadConversionRun[]> {
-  const response = await fetch(`/api/files/${fileId}/cad-conversion-runs`);
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<CadConversionRun[]>;
+export function listFileConversionRuns(fileId: number): Promise<CadConversionRun[]> {
+  return apiGet<CadConversionRun[]>(`/api/files/${fileId}/cad-conversion-runs`);
 }

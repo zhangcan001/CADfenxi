@@ -1,3 +1,5 @@
+import { apiGet, apiPost } from "./client";
+
 export type RecognitionCandidate = {
   id: number;
   project_id: number;
@@ -32,27 +34,22 @@ export type BatchCandidateGenerateResult = {
   items: CandidateGenerateResult[];
 };
 
-async function postResult<T>(url: string): Promise<T> {
-  const response = await fetch(url, { method: "POST" });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<T>;
-}
+const LONG_OP_TIMEOUT_MS = 300_000;
 
 export function generateSheetCandidates(sheetId: number): Promise<CandidateGenerateResult> {
-  return postResult<CandidateGenerateResult>(`/api/sheets/${sheetId}/generate-candidates`);
+  return apiPost<CandidateGenerateResult>(`/api/sheets/${sheetId}/generate-candidates`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
+  });
 }
 
 export function generateBatchCandidates(batchId: number): Promise<BatchCandidateGenerateResult> {
-  return postResult<BatchCandidateGenerateResult>(`/api/imports/${batchId}/generate-candidates`);
+  return apiPost<BatchCandidateGenerateResult>(
+    `/api/imports/${batchId}/generate-candidates`,
+    undefined,
+    { timeoutMs: LONG_OP_TIMEOUT_MS }
+  );
 }
 
-export async function listSheetCandidates(sheetId: number): Promise<RecognitionCandidate[]> {
-  const response = await fetch(`/api/sheets/${sheetId}/candidates`);
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<RecognitionCandidate[]>;
+export function listSheetCandidates(sheetId: number): Promise<RecognitionCandidate[]> {
+  return apiGet<RecognitionCandidate[]>(`/api/sheets/${sheetId}/candidates`);
 }
-import { readApiError } from "./errors";

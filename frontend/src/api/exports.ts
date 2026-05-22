@@ -1,3 +1,5 @@
+import { apiGet, apiPost } from "./client";
+
 export type ExportCheckResult = {
   can_export: boolean;
   is_complete_ledger: boolean;
@@ -57,35 +59,21 @@ export type ExportRecord = {
   download_url: string;
 };
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options
-  });
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
-
 export function checkExport(projectId: number): Promise<ExportCheckResult> {
-  return request<ExportCheckResult>(`/api/projects/${projectId}/exports/check`, {
-    method: "POST"
-  });
+  return apiPost<ExportCheckResult>(`/api/projects/${projectId}/exports/check`);
 }
 
 export function exportExcel(
   projectId: number,
   payload: { confirm_incomplete: boolean; include_issues?: boolean; filter?: unknown }
 ): Promise<ExportExcelResult> {
-  return request<ExportExcelResult>(`/api/projects/${projectId}/exports/excel`, {
-    method: "POST",
-    body: JSON.stringify(payload)
+  return apiPost<ExportExcelResult>(`/api/projects/${projectId}/exports/excel`, payload, {
+    timeoutMs: 300_000
   });
 }
 
 export function listExports(projectId: number): Promise<ExportRecord[]> {
-  return request<ExportRecord[]>(`/api/projects/${projectId}/exports`);
+  return apiGet<ExportRecord[]>(`/api/projects/${projectId}/exports`);
 }
 
 export function downloadExport(exportId: number) {

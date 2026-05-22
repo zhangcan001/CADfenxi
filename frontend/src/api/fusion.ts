@@ -1,3 +1,5 @@
+import { apiGet, apiPost } from "./client";
+
 export type FieldValue = {
   id: number;
   project_id: number;
@@ -61,44 +63,24 @@ export type BatchFusionResult = {
   items: SheetFusionResult[];
 };
 
-async function postResult<T>(url: string): Promise<T> {
-  const response = await fetch(url, { method: "POST" });
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<T>;
-}
+const LONG_OP_TIMEOUT_MS = 300_000;
 
 export function fuseSheetFields(sheetId: number): Promise<SheetFusionResult> {
-  return postResult<SheetFusionResult>(`/api/sheets/${sheetId}/fuse-fields`);
+  return apiPost<SheetFusionResult>(`/api/sheets/${sheetId}/fuse-fields`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
+  });
 }
 
 export function fuseBatchFields(batchId: number): Promise<BatchFusionResult> {
-  return postResult<BatchFusionResult>(`/api/imports/${batchId}/fuse-fields`);
+  return apiPost<BatchFusionResult>(`/api/imports/${batchId}/fuse-fields`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
+  });
 }
 
-export async function listSheetFieldValues(sheetId: number): Promise<FieldValue[]> {
-  const response = await fetch(`/api/sheets/${sheetId}/field-values`);
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<FieldValue[]>;
+export function listSheetFieldValues(sheetId: number): Promise<FieldValue[]> {
+  return apiGet<FieldValue[]>(`/api/sheets/${sheetId}/field-values`);
 }
 
-export async function listSheetEvidence(sheetId: number): Promise<FieldEvidence[]> {
-  const response = await fetch(`/api/sheets/${sheetId}/evidence`);
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<FieldEvidence[]>;
+export function listSheetEvidence(sheetId: number): Promise<FieldEvidence[]> {
+  return apiGet<FieldEvidence[]>(`/api/sheets/${sheetId}/evidence`);
 }
-
-export async function listProjectIssues(projectId: number): Promise<DrawingIssue[]> {
-  const response = await fetch(`/api/projects/${projectId}/issues`);
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  const data = (await response.json()) as { items?: DrawingIssue[] } | DrawingIssue[];
-  return Array.isArray(data) ? data : data.items ?? [];
-}
-import { readApiError } from "./errors";

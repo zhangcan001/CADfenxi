@@ -1,3 +1,5 @@
+import { apiGet, apiPost } from "./client";
+
 export type RecognitionRunResult = {
   sheet_id: number;
   status: string;
@@ -34,34 +36,32 @@ export type RecognitionRun = {
   created_at: string;
 };
 
-async function postResult<T>(url: string): Promise<T> {
-  const response = await fetch(url, { method: "POST" });
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
+const LONG_OP_TIMEOUT_MS = 300_000;
 
 export function extractSheetText(sheetId: number): Promise<RecognitionRunResult> {
-  return postResult<RecognitionRunResult>(`/api/sheets/${sheetId}/extract-text`);
+  return apiPost<RecognitionRunResult>(`/api/sheets/${sheetId}/extract-text`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
+  });
 }
 
 export function ocrSheetTitle(sheetId: number): Promise<RecognitionRunResult> {
-  return postResult<RecognitionRunResult>(`/api/sheets/${sheetId}/ocr-title`);
+  return apiPost<RecognitionRunResult>(`/api/sheets/${sheetId}/ocr-title`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
+  });
 }
 
 export function extractBatchText(batchId: number): Promise<BatchRecognitionResult> {
-  return postResult<BatchRecognitionResult>(`/api/imports/${batchId}/extract-text`);
+  return apiPost<BatchRecognitionResult>(`/api/imports/${batchId}/extract-text`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
+  });
 }
 
 export function ocrBatchTitles(batchId: number): Promise<BatchRecognitionResult> {
-  return postResult<BatchRecognitionResult>(`/api/imports/${batchId}/ocr-titles`);
+  return apiPost<BatchRecognitionResult>(`/api/imports/${batchId}/ocr-titles`, undefined, {
+    timeoutMs: LONG_OP_TIMEOUT_MS
+  });
 }
 
-export async function listRecognitionRuns(sheetId: number): Promise<RecognitionRun[]> {
-  const response = await fetch(`/api/sheets/${sheetId}/recognition-runs`);
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<RecognitionRun[]>;
+export function listRecognitionRuns(sheetId: number): Promise<RecognitionRun[]> {
+  return apiGet<RecognitionRun[]>(`/api/sheets/${sheetId}/recognition-runs`);
 }

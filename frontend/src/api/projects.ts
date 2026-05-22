@@ -1,3 +1,5 @@
+import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
+
 export type ProjectStats = {
   file_count: number;
   sheet_count: number;
@@ -31,53 +33,25 @@ export type ProjectPayload = {
   description?: string;
 };
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers
-    },
-    ...options
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
-}
-
 export function createProject(payload: ProjectPayload): Promise<Project> {
-  return request<Project>("/api/projects", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  return apiPost<Project>("/api/projects", payload);
 }
 
 export function listProjects(): Promise<Project[]> {
-  return request<Project[]>("/api/projects");
+  return apiGet<Project[]>("/api/projects");
 }
 
 export function getProject(projectId: number): Promise<Project> {
-  return request<Project>(`/api/projects/${projectId}`);
+  return apiGet<Project>(`/api/projects/${projectId}`);
 }
 
 export function updateProject(
   projectId: number,
   payload: ProjectPayload
 ): Promise<Project> {
-  return request<Project>(`/api/projects/${projectId}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload)
-  });
+  return apiPatch<Project>(`/api/projects/${projectId}`, payload);
 }
 
 export function deleteProject(projectId: number): Promise<void> {
-  return request<void>(`/api/projects/${projectId}`, {
-    method: "DELETE"
-  });
+  return apiDelete<void>(`/api/projects/${projectId}`);
 }

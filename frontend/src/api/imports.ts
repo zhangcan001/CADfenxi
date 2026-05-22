@@ -1,4 +1,4 @@
-import { readApiError } from "./errors";
+import { apiGet, apiPost } from "./client";
 
 export type ImportedFile = {
   id: number;
@@ -58,7 +58,7 @@ export type ImportBatch = {
   files: ImportedFile[];
 };
 
-export async function uploadProjectDrawingFiles(
+export function uploadProjectDrawingFiles(
   projectId: number,
   payload: {
     batchName?: string;
@@ -75,24 +75,14 @@ export async function uploadProjectDrawingFiles(
   }
   payload.files.forEach((file) => formData.append("files", file));
 
-  const response = await fetch(`/api/projects/${projectId}/imports`, {
-    method: "POST",
-    body: formData
+  // Uploads can be large; give them a generous 5-minute window.
+  return apiPost<ImportBatch>(`/api/projects/${projectId}/imports`, formData, {
+    timeoutMs: 300_000
   });
-
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-
-  return response.json() as Promise<ImportBatch>;
 }
 
 export const uploadProjectPdfs = uploadProjectDrawingFiles;
 
-export async function listProjectFiles(projectId: number): Promise<DrawingFile[]> {
-  const response = await fetch(`/api/projects/${projectId}/files`);
-  if (!response.ok) {
-    throw await readApiError(response);
-  }
-  return response.json() as Promise<DrawingFile[]>;
+export function listProjectFiles(projectId: number): Promise<DrawingFile[]> {
+  return apiGet<DrawingFile[]>(`/api/projects/${projectId}/files`);
 }

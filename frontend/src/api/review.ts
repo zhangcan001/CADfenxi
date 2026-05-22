@@ -1,3 +1,4 @@
+import { apiGet, apiPatch, apiPost } from "./client";
 import type { DrawingIssue, FieldValue } from "./fusion";
 
 export type AuditLog = {
@@ -39,37 +40,11 @@ export type BatchConfirmResult = {
   skipped: Array<{ sheet_id: number; reason: string }>;
 };
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options
-  });
-  if (!response.ok) {
-    let message = `Request failed: ${response.status}`;
-    try {
-      const data = (await response.json()) as { detail?: unknown };
-      if (typeof data.detail === "string") {
-        message = `HTTP_${response.status}：${data.detail}`;
-      } else if (data.detail && typeof data.detail === "object") {
-        const detail = data.detail as { message?: string; errors?: string[] };
-        message = `HTTP_${response.status}：${detail.message ?? JSON.stringify(data.detail)}`;
-      }
-    } catch {
-      message = `HTTP_${response.status}：请求失败`;
-    }
-    throw new Error(message);
-  }
-  return response.json() as Promise<T>;
-}
-
 export function updateSheetFields(
   sheetId: number,
   payload: { fields: Record<string, string>; note?: string }
 ): Promise<ReviewUpdateResult> {
-  return request<ReviewUpdateResult>(`/api/sheets/${sheetId}/fields`, {
-    method: "PATCH",
-    body: JSON.stringify(payload)
-  });
+  return apiPatch<ReviewUpdateResult>(`/api/sheets/${sheetId}/fields`, payload);
 }
 
 export function adoptCandidate(
@@ -77,10 +52,7 @@ export function adoptCandidate(
   candidateId: number,
   note?: string
 ): Promise<{ field_value: FieldValue; confidence_score: number; trust_level: string; issues: DrawingIssue[] }> {
-  return request(`/api/sheets/${sheetId}/adopt-candidate`, {
-    method: "POST",
-    body: JSON.stringify({ candidate_id: candidateId, note })
-  });
+  return apiPost(`/api/sheets/${sheetId}/adopt-candidate`, { candidate_id: candidateId, note });
 }
 
 export function restoreRecommendedField(
@@ -88,32 +60,23 @@ export function restoreRecommendedField(
   fieldName: string,
   note?: string
 ): Promise<{ field_value: FieldValue; confidence_score: number; trust_level: string; issues: DrawingIssue[] }> {
-  return request(`/api/sheets/${sheetId}/restore-recommended`, {
-    method: "POST",
-    body: JSON.stringify({ field_name: fieldName, note })
-  });
+  return apiPost(`/api/sheets/${sheetId}/restore-recommended`, { field_name: fieldName, note });
 }
 
 export function confirmSheet(
   sheetId: number,
   payload: { force?: boolean; note?: string }
 ): Promise<ConfirmSheetResult> {
-  return request<ConfirmSheetResult>(`/api/sheets/${sheetId}/confirm`, {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  return apiPost<ConfirmSheetResult>(`/api/sheets/${sheetId}/confirm`, payload);
 }
 
 export function batchConfirmProject(
   projectId: number,
   payload: { sheet_ids: number[]; confirm_mode?: string; only_without_errors?: boolean; note?: string }
 ): Promise<BatchConfirmResult> {
-  return request<BatchConfirmResult>(`/api/projects/${projectId}/batch-confirm`, {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  return apiPost<BatchConfirmResult>(`/api/projects/${projectId}/batch-confirm`, payload);
 }
 
 export function getSheetAuditLogs(sheetId: number): Promise<AuditLog[]> {
-  return request<AuditLog[]>(`/api/sheets/${sheetId}/audit-logs`);
+  return apiGet<AuditLog[]>(`/api/sheets/${sheetId}/audit-logs`);
 }

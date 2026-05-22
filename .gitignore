@@ -13,6 +13,7 @@ app_data/temp/
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+frontend/src/api/openapi-schema.json
 
 release/
 
