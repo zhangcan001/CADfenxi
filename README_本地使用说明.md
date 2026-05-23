@@ -1,4 +1,4 @@
-# 工程图纸智能台账识别系统 v1.0-local-stable 本地使用说明
+# 工程图纸智能台账识别系统 v1.0.2-fast-stable 本地使用说明
 
 ## 一、这是什么软件
 
@@ -21,6 +21,12 @@ DWG 文件需要先通过外部工具转换为 DXF，再进入识别流程。
 第二步：双击 `scripts\install_backend_deps.bat`。
 第三步：双击 `start.bat`。
 第四步：浏览器自动打开系统。
+
+## v1.0.2-fast-stable 升级建议
+
+升级到 v1.0.2-fast-stable 前，请先关闭系统并备份 app_data。
+升级后将旧 app_data 复制到新版目录，运行 check_env.bat，再运行 start.bat。
+启动后建议打开旧项目并导出一次 Excel 验证数据正常。
 
 ## 四、日常使用
 

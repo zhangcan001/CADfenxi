@@ -138,6 +138,15 @@ h3 {
   align-items: start;
 }
 
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 18px;
+  color: #5d6b7e;
+  font-size: 13px;
+}
+
 .project-list,
 .project-home {
   min-height: 640px;

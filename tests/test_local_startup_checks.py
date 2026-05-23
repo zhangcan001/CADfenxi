@@ -11,6 +11,7 @@ def test_app_data_directories_are_initialized(tmp_path: Path):
 
     assert (tmp_path / "app_data").is_dir()
     assert (tmp_path / "app_data" / "projects").is_dir()
+    assert (tmp_path / "app_data" / "backups").is_dir()
     assert (tmp_path / "app_data" / "database").is_dir()
     assert (tmp_path / "app_data" / "logs").is_dir()
     assert (tmp_path / "app_data" / "temp").is_dir()

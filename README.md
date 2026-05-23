@@ -2,11 +2,13 @@
 
 ## 当前版本
 
-v1.0-local-stable
+v1.0.2-fast-stable
 
 ## 版本定位
 
-个人本地正式稳定版。
+个人本地正式版快速稳定发布版本。
+
+v1.0.2-fast-stable 是正式版快速稳定发布版本。本版本不新增功能，重点保证启动、旧数据兼容、PDF / DXF / DWG / CAD pipeline / CAD 预览 / 校核 / Excel 导出 / 备份恢复 / 健康检查流程稳定。
 
 用于本地识别 PDF / DXF 图纸，以及 DWG 转 DXF 后的图纸，辅助生成工程图纸台账，支持人工校核、CAD 轻量预览、项目备份恢复、数据健康检查和 Excel 导出。
 
@@ -134,25 +136,31 @@ DWG 上传
 
 ## 便携包
 
-生成 v1.0 正式便携包：
+生成 v1.0.2 快速稳定版便携包：
 
 ```bash
-python scripts/build_portable_package.py --version v1.0-local-stable --clean
+python scripts/build_portable_package.py --version v1.0.2-fast-stable --clean
 ```
 
 输出目录：
 
 ```text
-release/工程图纸智能台账识别系统-v1.0-local-stable/
+release/工程图纸智能台账识别系统-v1.0.2-fast-stable/
 ```
 
 ## 发布材料
 
 - `docs/RELEASE_CHECKLIST_v1.0-local-stable.md`
 - `docs/FINAL_ACCEPTANCE_v1.0-local-stable.md`
+- `docs/V1_0_1_REAL_USE_FIX_REPORT.md`
+- `docs/FAST_RELEASE_REPORT_v1.0.2.md`
 - `RELEASE_NOTES.md`
 
 ## 历史版本摘要
+
+### v1.0.1 正式版真实使用问题修复
+
+v1.0.1 是个人本地正式稳定版真实使用问题修复版本。本版本不新增功能，主要修复正式版使用中发现的启动、识别、CAD 预览、校核、导出、备份恢复和健康检查问题。
 
 ### v0.7.2 数据安全收口与全量 app_data 备份迁移指南
 

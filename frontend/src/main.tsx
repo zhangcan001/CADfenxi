@@ -3378,6 +3378,11 @@ function App() {
         </section>
       </section>
 
+      <footer className="app-footer">
+        <span>版本：{health?.version ?? APP_VERSION}</span>
+        <span>本地数据目录：app_data</span>
+      </footer>
+
       {previewSheet ? (
         <div className="preview-modal" role="dialog" aria-modal="true">
           <div className="preview-dialog">

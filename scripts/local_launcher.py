@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-APP_VERSION = "v1.0-local-stable"
+APP_VERSION = "v1.0.2-fast-stable"
 DEFAULT_PORT = 8000
 HEALTH_TIMEOUT_SECONDS = 45
 MIN_PYTHON_VERSION = (3, 11)
@@ -86,6 +86,7 @@ def ensure_app_data(root: Path) -> list[Path]:
     required_dirs = [
         root / "app_data",
         root / "app_data" / "projects",
+        root / "app_data" / "backups",
         root / "app_data" / "database",
         root / "app_data" / "logs",
         root / "app_data" / "temp",
@@ -170,7 +171,7 @@ def check_startup_requirements(root: Path, port: int = DEFAULT_PORT) -> list[Che
         checks.append(CheckResult("OK", "app_data/database", "可写"))
 
     if is_port_in_use(port):
-            checks.append(CheckResult("ERROR", f"端口 {port}", f"已被占用，请关闭旧窗口或释放 {port} 端口", "PORT_8000_IN_USE"))
+        checks.append(CheckResult("ERROR", f"端口 {port}", f"已被占用，请关闭旧窗口或释放 {port} 端口", "PORT_8000_IN_USE"))
     else:
         checks.append(CheckResult("OK", f"端口 {port}", "空闲"))
     return checks
