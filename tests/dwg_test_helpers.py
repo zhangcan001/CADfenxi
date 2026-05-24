@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -78,6 +79,36 @@ raise SystemExit(0)
 """
     script.write_text(body.strip() + "\n", encoding="utf-8")
     return script
+
+
+def wait_for_cad_pipeline_job(
+    client: TestClient, batch_id: int, timeout_s: float = 120.0
+) -> dict:
+    """Poll /cad-pipeline/job until the job leaves the running state."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        response = client.get(f"/api/imports/{batch_id}/cad-pipeline/job")
+        assert response.status_code == 200, response.text
+        job = response.json()
+        if job is None:
+            time.sleep(0.05)
+            continue
+        if job["status"] != "running":
+            return job
+        time.sleep(0.05)
+    raise AssertionError(f"cad-pipeline job did not finish within {timeout_s}s")
+
+
+def run_cad_pipeline_blocking(
+    client: TestClient, batch_id: int, payload: dict, timeout_s: float = 120.0
+) -> dict:
+    """POST /cad-pipeline + 等待 job 完成，返回 result_summary（与旧同步路由一致的 shape）。"""
+    start = client.post(f"/api/imports/{batch_id}/cad-pipeline", json=payload)
+    assert start.status_code == 200, start.text
+    job = wait_for_cad_pipeline_job(client, batch_id, timeout_s=timeout_s)
+    summary = job.get("result_summary")
+    assert summary is not None, f"missing result_summary on job: {job}"
+    return summary
 
 
 def create_converter_setting(client: TestClient, converter_path: Path) -> dict:

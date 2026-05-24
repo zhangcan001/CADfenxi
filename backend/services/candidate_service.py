@@ -37,6 +37,17 @@ MACHINE_SOURCES = [
 ]
 
 
+def _serialize_bbox(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return None
+
+
 def generate_candidates_for_sheet(db: Session, sheet_id: int) -> CandidateGenerateResult:
     sheet = db.get(DrawingSheet, sheet_id)
     if sheet is None:
@@ -76,7 +87,7 @@ def generate_candidates_for_sheet(db: Session, sheet_id: int) -> CandidateGenera
             source_type=item["source_type"],
             confidence=float(item["confidence"]),
             raw_text=item["raw_text"],
-            bbox=item.get("bbox"),
+            bbox=_serialize_bbox(item.get("bbox")),
             run_id=run_id,
             parser_name=item["parser_name"],
             parser_version=item["parser_version"],

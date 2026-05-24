@@ -3,7 +3,12 @@ from pathlib import Path
 
 from recognizer.normalizer.date import normalize_issue_date
 from recognizer.normalizer.discipline import infer_discipline
-from recognizer.normalizer.drawing_no import is_supported_drawing_no, normalize_drawing_no
+from recognizer.normalizer.drawing_no import (
+    is_blacklisted_drawing_no,
+    is_plausible_drawing_no,
+    is_supported_drawing_no,
+    normalize_drawing_no,
+)
 from recognizer.normalizer.version import normalize_version
 
 PARSER_NAME = "filename_parser"
@@ -17,8 +22,11 @@ def parse_filename(filename: str) -> list[dict]:
     raw_text = stem
 
     drawing_no = find_drawing_no(stem)
-    if drawing_no and is_supported_drawing_no(drawing_no):
-        candidates.append(candidate("drawing_no", drawing_no, normalize_drawing_no(drawing_no), 70, raw_text))
+    if drawing_no and not is_blacklisted_drawing_no(drawing_no):
+        if is_supported_drawing_no(drawing_no):
+            candidates.append(candidate("drawing_no", drawing_no, normalize_drawing_no(drawing_no), 70, raw_text))
+        elif is_plausible_drawing_no(drawing_no):
+            candidates.append(candidate("drawing_no", drawing_no, normalize_drawing_no(drawing_no), 55, raw_text))
 
     name_part = find_name_part(parts, drawing_no)
     if name_part:
@@ -40,10 +48,11 @@ def parse_filename(filename: str) -> list[dict]:
 
 
 def find_drawing_no(text: str) -> str | None:
+    # 三段式：JS-01-01、SJ-01-02、建施-A-01。允许第二段为字母或数字。
     patterns = [
-        r"(建施|建总|结施|水施|电施|暖施|弱电|消防|总施|设总|室外|建筑|结构|给排水|电气|暖通)\s*[-_—－– ]?\s*\d{1,4}",
-        r"\b(JS|JZ|JG|GS|SS|DS|NT|XS|RD|PL|LA)\s*[-_—－– ]?\s*\d{1,4}\b",
-        r"\b[ASEMPT]\s*[-_—－– ]?\s*\d{2,4}\b",
+        r"(建施|建总|结施|水施|电施|暖施|弱电|消防|总施|设总|室外|建筑|结构|给排水|电气|暖通)\s*[-_—－– ]?\s*[A-Z]?\s*[-_—－– ]?\s*\d{1,4}(?:\s*[-_—－– ]\s*\d{1,4})?",
+        r"\b(JS|JZ|JG|GS|SS|DS|NT|XS|RD|PL|LA)\s*[-_—－– ]?\s*\d{1,4}(?:\s*[-_—－– ]\s*\d{1,4})?\b",
+        r"\b[ASEMPT]\s*[-_—－– ]?\s*\d{2,4}(?:\s*[-_—－– ]\s*\d{1,4})?\b",
     ]
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
@@ -51,14 +60,22 @@ def find_drawing_no(text: str) -> str | None:
             return match.group(0).strip()
     compact_text = re.sub(r"[\s_—－–-]+", "", text)
     compact_patterns = [
-        r"(建施总|建总|建施|结施|水施|电施|暖施|弱电|消防|总施|设总|室外|建筑|结构|给排水|电气|暖通)\d{1,4}",
-        r"(JS|JZ|JG|GS|SS|DS|NT|XS|RD|PL|LA)\d{1,4}",
-        r"[ASEMPT]\d{2,4}",
+        r"(?<![A-Za-z一-鿿])(建施总|建总|建施|结施|水施|电施|暖施|弱电|消防|总施|设总|室外|建筑|结构|给排水|电气|暖通)\d{1,4}",
+        r"(?<![A-Za-z])(JS|JZ|JG|GS|SS|DS|NT|XS|RD|PL|LA)\d{1,4}",
+        r"(?<![A-Za-z])[ASEMPT]\d{2,4}",
     ]
     for pattern in compact_patterns:
         match = re.search(pattern, compact_text, re.IGNORECASE)
         if match:
             return match.group(0).strip()
+    # 兜底：1-6 个大写字母/汉字 + 数字 (+ 可选第二段数字)。覆盖 SJ-01、DQ-01、KT-05、JS-01-01 等。
+    # 要求大写以避免误吃 "page-1"、"sheet-2" 这类英文小写词。
+    plausible_match = re.search(
+        r"\b[A-Z一-鿿]{1,6}\s*[-_—－– ]\s*\d{1,4}(?:\s*[-_—－– ]\s*\d{1,4})?\b",
+        text,
+    )
+    if plausible_match:
+        return plausible_match.group(0).strip()
     return None
 
 

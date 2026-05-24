@@ -18,7 +18,14 @@ from backend.models.export_record import ExportRecord
 from backend.models.field_value import FieldValue
 from backend.models.recognition_candidate import RecognitionCandidate
 from backend.models.review_audit_log import ReviewAuditLog
-from dwg_test_helpers import DWG_BYTES, DXF_TEXT, clear_converter_tables, create_converter_setting, write_mock_converter
+from dwg_test_helpers import (
+    DWG_BYTES,
+    DXF_TEXT,
+    clear_converter_tables,
+    create_converter_setting,
+    run_cad_pipeline_blocking,
+    write_mock_converter,
+)
 
 
 def make_pdf_bytes(text: str = "建施-55 稳定性PDF") -> bytes:
@@ -73,16 +80,12 @@ def export_excel(client: TestClient, project_id: int) -> dict:
 
 
 def run_pipeline(client: TestClient, batch_id: int, steps: list[str] | None = None, skip_completed: bool = True) -> dict:
-    response = client.post(
-        f"/api/imports/{batch_id}/cad-pipeline",
-        json={
-            "steps": steps or ["convert_dwg", "prepare_dxf_sheet", "parse_dxf", "generate_candidates", "fuse_fields"],
-            "skip_completed": skip_completed,
-            "continue_on_error": True,
-        },
-    )
-    assert response.status_code == 200, response.text
-    return response.json()
+    payload = {
+        "steps": steps or ["convert_dwg", "prepare_dxf_sheet", "parse_dxf", "generate_candidates", "fuse_fields"],
+        "skip_completed": skip_completed,
+        "continue_on_error": True,
+    }
+    return run_cad_pipeline_blocking(client, batch_id, payload)
 
 
 def counts(sheet_id: int) -> tuple[int, int]:

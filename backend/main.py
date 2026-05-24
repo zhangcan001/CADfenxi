@@ -23,6 +23,8 @@ from backend.core.config import settings
 from backend.core.database import init_database
 from backend.core.logging import setup_logging
 from backend.frontend_static import mount_frontend_static
+from backend.services.background_job_service import reset_orphaned_jobs
+from backend.services.ocr_service import reset_orphaned_ocr_jobs
 
 
 @asynccontextmanager
@@ -30,6 +32,8 @@ async def lifespan(app: FastAPI):
     settings.ensure_storage()
     setup_logging()
     init_database()
+    reset_orphaned_ocr_jobs()
+    reset_orphaned_jobs()
     logging.getLogger(__name__).info("Application started")
     yield
 

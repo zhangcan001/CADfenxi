@@ -47,3 +47,9 @@ samples/cad_preview_stability_v0_8_4/*
 # Local data health real app_data samples may contain confidential drawings.
 samples/data_health_real_v0_9_1/*
 !samples/data_health_real_v0_9_1/README.md
+
+# Local real-world drawing samples may contain confidential drawings.
+samples/real_world/
+
+# Local temp directory for development scratch files.
+tmp/

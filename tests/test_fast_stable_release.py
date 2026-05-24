@@ -11,7 +11,13 @@ from backend.models.drawing_issue import DrawingIssue
 from backend.models.drawing_sheet import DrawingSheet
 from backend.models.field_value import FieldValue
 from backend.models.recognition_candidate import RecognitionCandidate
-from dwg_test_helpers import DWG_BYTES, clear_converter_tables, create_converter_setting, write_mock_converter
+from dwg_test_helpers import (
+    DWG_BYTES,
+    clear_converter_tables,
+    create_converter_setting,
+    run_cad_pipeline_blocking,
+    write_mock_converter,
+)
 from scripts.build_portable_package import DEFAULT_VERSION, build_portable_package, package_name
 from test_full_flow_stability_v055 import make_pdf_bytes, title_block_dxf
 from test_project_backup_restore import backup_project, create_project, upload_files
@@ -193,9 +199,10 @@ def test_v102_cad_pipeline_is_idempotent_and_preserves_manual_fields(tmp_path: P
             ],
         )
         batch_id = upload["id"]
-        first = client.post(
-            f"/api/imports/{batch_id}/cad-pipeline",
-            json={
+        first = run_cad_pipeline_blocking(
+            client,
+            batch_id,
+            {
                 "steps": [
                     "convert_dwg",
                     "prepare_dxf_sheet",
@@ -216,19 +223,19 @@ def test_v102_cad_pipeline_is_idempotent_and_preserves_manual_fields(tmp_path: P
             f"/api/sheets/{dxf_sheet_id}/fields",
             json={"fields": {"drawing_no": "人工-FAST-102", "drawing_name": "人工 Pipeline", "discipline": "建筑"}},
         )
-        rerun = client.post(
-            f"/api/imports/{batch_id}/cad-pipeline",
-            json={"steps": ["generate_candidates", "fuse_fields"], "skip_completed": False, "continue_on_error": True},
+        rerun = run_cad_pipeline_blocking(
+            client,
+            batch_id,
+            {"steps": ["generate_candidates", "fuse_fields"], "skip_completed": False, "continue_on_error": True},
         )
         detail = client.get(f"/api/sheets/{dxf_sheet_id}").json()
 
-    assert first.status_code == 200, first.text
-    assert first.json()["summary"]["dwg_files"] == 1
-    assert first.json()["summary"]["dxf_files"] == 1
-    assert first.json()["summary"]["converted_success"] == 1
-    assert first.json()["summary"]["parse_success"] == 2
+    assert first["summary"]["dwg_files"] == 1
+    assert first["summary"]["dxf_files"] == 1
+    assert first["summary"]["converted_success"] == 1
+    assert first["summary"]["parse_success"] == 2
     assert manual.status_code == 200
-    assert rerun.status_code == 200
+    assert rerun["status"] in {"success", "completed_with_errors", "skipped", "failed"}
     assert detail["drawing_no"] == "人工-FAST-102"
     assert reviewed_field(dxf_sheet_id, "drawing_no").is_reviewed is True
     assert candidate_count(dxf_sheet_id) == candidates_before

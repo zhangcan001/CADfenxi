@@ -138,16 +138,36 @@ def test_batch_extract_text_success():
     assert response.json()["success_count"] == 2
 
 
+def _wait_for_ocr_job(client: TestClient, batch_id: int, timeout_s: float = 30.0) -> dict:
+    import time
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        response = client.get(f"/api/imports/{batch_id}/ocr-job")
+        assert response.status_code == 200, response.text
+        job = response.json()
+        if job["status"] in {"completed", "failed", "idle"}:
+            return job
+        time.sleep(0.1)
+    raise AssertionError(f"OCR job did not finish within {timeout_s}s")
+
+
 def test_batch_ocr_titles_success():
     with TestClient(app) as client:
         _, batch_id, _ = prepare_sheet(client, page_count=2)
         crop = client.post(f"/api/imports/{batch_id}/title-crops")
         assert crop.status_code == 200
-        response = client.post(f"/api/imports/{batch_id}/ocr-titles")
+        start = client.post(f"/api/imports/{batch_id}/ocr-titles")
+        assert start.status_code == 200, start.text
+        job_started = start.json()
+        assert job_started["batch_id"] == batch_id
+        assert job_started["total"] == 2
+        assert job_started["status"] in {"running", "completed"}
 
-    assert response.status_code == 200
-    assert response.json()["total_count"] == 2
-    assert response.json()["success_count"] == 2
+        final = _wait_for_ocr_job(client, batch_id)
+        assert final["status"] == "completed"
+        assert final["total"] == 2
+        assert final["processed"] == 2
+        assert final["success_count"] == 2
 
 
 def test_missing_sheet_returns_404():

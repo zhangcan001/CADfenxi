@@ -1,9 +1,11 @@
 
 from recognizer.filename_parser.parser import find_date, find_drawing_no, find_version
-from recognizer.normalizer.date import normalize_issue_date
+from recognizer.normalizer.date import is_full_date_text, normalize_issue_date
 from recognizer.normalizer.discipline import infer_discipline
 from recognizer.normalizer.drawing_no import (
+    is_blacklisted_drawing_no,
     is_component_or_axis_no,
+    is_plausible_drawing_no,
     is_supported_drawing_no,
     normalize_drawing_no,
 )
@@ -114,12 +116,24 @@ def infer_candidates_from_text(text: str, source_type: str, *, tagged_field: str
         return [tagged] if tagged else []
 
     drawing_no = find_drawing_no(value)
-    if drawing_no and is_supported_drawing_no(drawing_no):
-        candidates.append(candidate("drawing_no", drawing_no, normalize_drawing_no(drawing_no), adjusted_confidence(base["drawing_no"], value), value, source_type))
+    if drawing_no and not is_blacklisted_drawing_no(drawing_no):
+        if is_supported_drawing_no(drawing_no):
+            confidence = adjusted_confidence(base["drawing_no"], value)
+        elif is_plausible_drawing_no(drawing_no):
+            confidence = adjusted_confidence(max(base["drawing_no"] - 20, 50), value)
+        else:
+            confidence = 0
+        if confidence > 0:
+            candidates.append(candidate("drawing_no", drawing_no, normalize_drawing_no(drawing_no), confidence, value, source_type))
 
     drawing_name = find_drawing_name(value)
     if drawing_name:
-        candidates.append(candidate("drawing_name", drawing_name, drawing_name, adjusted_confidence(base["drawing_name"], value), value, source_type))
+        # 关键词命中 = 强候选；启发式命中 = 弱候选（-15）
+        is_heuristic = drawing_name == value and drawing_name not in DRAWING_NAME_KEYWORDS
+        name_confidence = adjusted_confidence(base["drawing_name"], value)
+        if is_heuristic:
+            name_confidence = max(name_confidence - 15, 0)
+        candidates.append(candidate("drawing_name", drawing_name, drawing_name, name_confidence, value, source_type))
 
     version = find_version(value)
     if version:
@@ -129,6 +143,10 @@ def infer_candidates_from_text(text: str, source_type: str, *, tagged_field: str
     if issue_date:
         normalized = normalize_issue_date(issue_date)
         confidence = base["issue_date"] if normalized else min(base["issue_date"], 50)
+        # 自由 cad_text/cad_mtext 路径下，非完整日期 (如 "2024年5月") 容易误吃
+        # 图中规范引用，给低置信度
+        if source_type in {"cad_text", "cad_mtext"} and not is_full_date_text(issue_date):
+            confidence = min(confidence, 45)
         candidates.append(candidate("issue_date", issue_date, normalized, confidence, value, source_type))
 
     discipline = infer_discipline(value)
@@ -162,12 +180,33 @@ def normalize_by_field(field_name: str, value: str) -> str | None:
     return value
 
 
+NAME_HINT_KEYWORDS = (
+    "图",
+    "表",
+    "详图",
+    "大样",
+    "平面",
+    "立面",
+    "剖面",
+    "系统",
+    "原理",
+    "节点",
+    "示意",
+    "布置",
+)
+
+
 def find_drawing_name(text: str) -> str | None:
     if is_note_text(text):
         return None
     for keyword in DRAWING_NAME_KEYWORDS:
         if keyword in text:
             return keyword
+    # 启发式：长度 2-30 字、含图名提示词、非全数字符号
+    stripped = (text or "").strip()
+    if 2 <= len(stripped) <= 30 and any(hint in stripped for hint in NAME_HINT_KEYWORDS):
+        if not stripped.replace("-", "").replace(" ", "").isdigit():
+            return stripped
     return None
 
 
@@ -197,10 +236,19 @@ def discipline_confidence(source_type: str, text: str, confidence: int) -> int:
 
 def confidence_base(source_type: str) -> dict[str, int]:
     if source_type == "cad_block_attr":
-        return {"drawing_no": 93, "drawing_name": 90, "version": 88, "issue_date": 88, "discipline": 84}
+        return {
+            "drawing_no": 93, "drawing_name": 90, "version": 88, "issue_date": 88, "discipline": 84,
+            "designer": 92, "drafter": 92, "reviewer": 92, "checker": 92, "approver": 92,
+        }
     if source_type == "cad_filename":
-        return {"drawing_no": 70, "drawing_name": 60, "version": 60, "issue_date": 65, "discipline": 60}
-    return {"drawing_no": 78, "drawing_name": 72, "version": 66, "issue_date": 66, "discipline": 64}
+        return {
+            "drawing_no": 70, "drawing_name": 60, "version": 60, "issue_date": 65, "discipline": 60,
+            "designer": 55, "drafter": 55, "reviewer": 55, "checker": 55, "approver": 55,
+        }
+    return {
+        "drawing_no": 78, "drawing_name": 72, "version": 66, "issue_date": 66, "discipline": 64,
+        "designer": 70, "drafter": 70, "reviewer": 70, "checker": 70, "approver": 70,
+    }
 
 
 def is_suspect_drawing_no_candidate(value: str, source_type: str) -> bool:

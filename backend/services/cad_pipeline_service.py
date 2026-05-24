@@ -1,4 +1,5 @@
 import logging
+import threading
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -7,12 +8,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.core.config import settings
+from backend.core.database import SessionLocal
 from backend.models.drawing_file import DrawingFile
 from backend.models.drawing_issue import DrawingIssue
 from backend.models.drawing_sheet import DrawingSheet
 from backend.models.field_value import FieldValue
 from backend.models.import_batch import ImportBatch
 from backend.models.recognition_candidate import RecognitionCandidate
+from backend.schemas.background_job import BackgroundJobStatus
 from backend.schemas.cad_pipeline import (
     CadPipelineError,
     CadPipelineItem,
@@ -25,6 +28,7 @@ from backend.schemas.cad_pipeline import (
 )
 from backend.schemas.cad import CadPreviewBatchRequest
 from backend.services import (
+    background_job_service,
     cad_converter_service,
     cad_parse_service,
     cad_preview_service,
@@ -42,8 +46,18 @@ StepHandler = Callable[
     tuple[CadPipelineStepResult, bool],
 ]
 
+ProgressCallback = Callable[[int, int, "CadPipelineStepName | None"], None]
 
-def run_cad_pipeline(db: Session, batch_id: int, payload: CadPipelineRequest) -> CadPipelineResponse:
+
+CAD_PIPELINE_JOB_TYPE = "cad_pipeline"
+
+
+def run_cad_pipeline(
+    db: Session,
+    batch_id: int,
+    payload: CadPipelineRequest,
+    progress_callback: ProgressCallback | None = None,
+) -> CadPipelineResponse:
     started_at = now()
     batch = db.get(ImportBatch, batch_id)
     if batch is None:
@@ -66,13 +80,24 @@ def run_cad_pipeline(db: Session, batch_id: int, payload: CadPipelineRequest) ->
     errors: list[CadPipelineError] = []
     pipeline_status: CadPipelineStatus = "success"
     had_work = False
+    total_steps = len(payload.steps)
 
-    for step_name in payload.steps:
+    for index, step_name in enumerate(payload.steps):
+        if progress_callback is not None:
+            try:
+                progress_callback(index, total_steps, step_name)
+            except Exception:
+                logger.exception("progress_callback raised at step start step=%s", step_name)
         result, executed = run_step(db, batch_id, files, step_name, payload)
         steps.append(result)
         errors.extend(result.errors)
         had_work = had_work or executed
         pipeline_status = combine_status(pipeline_status, result.status)
+        if progress_callback is not None:
+            try:
+                progress_callback(index + 1, total_steps, step_name)
+            except Exception:
+                logger.exception("progress_callback raised at step end step=%s", step_name)
         if result.status == "failed" and not payload.continue_on_error:
             break
 
@@ -89,6 +114,92 @@ def run_cad_pipeline(db: Session, batch_id: int, payload: CadPipelineRequest) ->
         steps=steps,
         errors=errors,
     )
+
+
+def start_cad_pipeline_job(
+    db: Session, batch_id: int, payload: CadPipelineRequest
+) -> BackgroundJobStatus:
+    batch = db.get(ImportBatch, batch_id)
+    if batch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "IMPORT_BATCH_NOT_FOUND", "message": "导入批次不存在。"},
+        )
+    payload_dict = payload.model_dump(mode="json")
+    job = background_job_service.create_job(
+        db,
+        job_type=CAD_PIPELINE_JOB_TYPE,
+        scope_type="batch",
+        scope_id=batch_id,
+        total=len(payload.steps),
+        payload=payload_dict,
+    )
+    threading.Thread(
+        target=_run_cad_pipeline_worker,
+        args=(job.id, batch_id, payload_dict),
+        daemon=True,
+        name=f"cad-pipeline-{batch_id}-job-{job.id}",
+    ).start()
+    logger.info(
+        "Started cad-pipeline job batch_id=%s job_id=%s steps=%s",
+        batch_id,
+        job.id,
+        payload.steps,
+    )
+    return background_job_service.to_status(job)
+
+
+def _run_cad_pipeline_worker(job_id: int, batch_id: int, payload_dict: dict) -> None:
+    session: Session = SessionLocal()
+    try:
+        payload = CadPipelineRequest(**payload_dict)
+        total_steps = len(payload.steps)
+
+        def progress_callback(processed: int, total: int, step: CadPipelineStepName | None) -> None:
+            step_label = step or ""
+            message = (
+                f"步骤 {processed}/{total}：{step_label}"
+                if step is not None
+                else f"步骤 {processed}/{total}"
+            )
+            background_job_service.update_progress(
+                session,
+                job_id,
+                processed=processed,
+                current_step=step_label or None,
+                message=message,
+            )
+
+        response = run_cad_pipeline(session, batch_id, payload, progress_callback=progress_callback)
+        background_job_service.mark_completed(
+            session,
+            job_id,
+            message=f"流水线 {response.status}，共 {total_steps} 步",
+            result_summary=response.model_dump(mode="json"),
+        )
+        logger.info("cad-pipeline job completed job_id=%s batch_id=%s", job_id, batch_id)
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
+        logger.exception("cad-pipeline worker HTTPException job_id=%s", job_id)
+        background_job_service.mark_failed(
+            session,
+            job_id,
+            message=str(detail.get("message", exc.detail))[:500],
+        )
+    except Exception as exc:
+        logger.exception("cad-pipeline worker top-level failure job_id=%s", job_id)
+        background_job_service.mark_failed(session, job_id, message=str(exc)[:500] or "未知错误")
+    finally:
+        session.close()
+
+
+def get_cad_pipeline_job(db: Session, batch_id: int) -> BackgroundJobStatus | None:
+    job = background_job_service.find_active(
+        db, CAD_PIPELINE_JOB_TYPE, "batch", batch_id
+    ) or background_job_service.find_latest(
+        db, CAD_PIPELINE_JOB_TYPE, "batch", batch_id
+    )
+    return background_job_service.to_status(job) if job else None
 
 
 def run_step(

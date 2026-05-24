@@ -15,7 +15,13 @@ from backend.models.field_evidence import FieldEvidence
 from backend.models.field_value import FieldValue
 from backend.models.recognition_candidate import RecognitionCandidate
 from backend.models.review_audit_log import ReviewAuditLog
-from dwg_test_helpers import DWG_BYTES, clear_converter_tables, create_converter_setting, write_mock_converter
+from dwg_test_helpers import (
+    DWG_BYTES,
+    clear_converter_tables,
+    create_converter_setting,
+    run_cad_pipeline_blocking,
+    write_mock_converter,
+)
 from test_full_flow_stability_v055 import make_pdf_bytes, title_block_dxf
 
 
@@ -35,16 +41,12 @@ def upload_files(client: TestClient, project_id: int, files: list[tuple[str, byt
 
 
 def run_pipeline(client: TestClient, batch_id: int) -> dict:
-    response = client.post(
-        f"/api/imports/{batch_id}/cad-pipeline",
-        json={
-            "steps": ["convert_dwg", "prepare_dxf_sheet", "parse_dxf", "generate_candidates", "fuse_fields"],
-            "skip_completed": True,
-            "continue_on_error": True,
-        },
-    )
-    assert response.status_code == 200, response.text
-    return response.json()
+    payload = {
+        "steps": ["convert_dwg", "prepare_dxf_sheet", "parse_dxf", "generate_candidates", "fuse_fields"],
+        "skip_completed": True,
+        "continue_on_error": True,
+    }
+    return run_cad_pipeline_blocking(client, batch_id, payload)
 
 
 def export_excel(client: TestClient, project_id: int) -> dict:

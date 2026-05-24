@@ -56,10 +56,24 @@ export function extractBatchText(batchId: number): Promise<BatchRecognitionResul
   });
 }
 
-export function ocrBatchTitles(batchId: number): Promise<BatchRecognitionResult> {
-  return apiPost<BatchRecognitionResult>(`/api/imports/${batchId}/ocr-titles`, undefined, {
-    timeoutMs: LONG_OP_TIMEOUT_MS
-  });
+export type OcrJobStatus = {
+  batch_id: number;
+  status: "idle" | "running" | "completed" | "failed";
+  total: number;
+  processed: number;
+  success_count: number;
+  failed_count: number;
+  started_at: string | null;
+  finished_at: string | null;
+  message: string | null;
+};
+
+export function ocrBatchTitles(batchId: number): Promise<OcrJobStatus> {
+  return apiPost<OcrJobStatus>(`/api/imports/${batchId}/ocr-titles`, undefined);
+}
+
+export function getOcrBatchJob(batchId: number): Promise<OcrJobStatus> {
+  return apiGet<OcrJobStatus>(`/api/imports/${batchId}/ocr-job`);
 }
 
 export function listRecognitionRuns(sheetId: number): Promise<RecognitionRun[]> {

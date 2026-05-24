@@ -27,7 +27,9 @@ import {
   type DxfSheetPrepareResult
 } from "./api/cad";
 import {
-  runCadPipeline,
+  getCadPipelineJob,
+  startCadPipeline,
+  type BackgroundJobStatus,
   type CadPipelineRequest,
   type CadPipelineResponse,
   type CadPipelineStep
@@ -71,10 +73,12 @@ import {
 import {
   extractBatchText,
   extractSheetText,
+  getOcrBatchJob,
   listRecognitionRuns,
   ocrBatchTitles,
   ocrSheetTitle,
   type BatchRecognitionResult,
+  type OcrJobStatus,
   type RecognitionRun,
   type RecognitionRunResult
 } from "./api/recognition";
@@ -304,6 +308,8 @@ function App() {
   const [recognitionResult, setRecognitionResult] =
     React.useState<BatchRecognitionResult | null>(null);
   const [recognitionError, setRecognitionError] = React.useState("");
+  const [ocrJob, setOcrJob] = React.useState<OcrJobStatus | null>(null);
+  const ocrJobPollRef = React.useRef<number | null>(null);
   const [recognitionRuns, setRecognitionRuns] = React.useState<RecognitionRun[]>([]);
   const [runsSheetId, setRunsSheetId] = React.useState<number | null>(null);
   const [candidateResult, setCandidateResult] =
@@ -370,6 +376,9 @@ function App() {
   const [cadPipelineError, setCadPipelineError] = React.useState("");
   const [cadPipelineStartedAt, setCadPipelineStartedAt] = React.useState<number | null>(null);
   const [cadPipelineElapsed, setCadPipelineElapsed] = React.useState(0);
+  const [cadPipelineJob, setCadPipelineJob] = React.useState<BackgroundJobStatus | null>(null);
+  const cadPipelineJobPollRef = React.useRef<number | null>(null);
+  const cadPipelineProjectIdRef = React.useRef<number | null>(null);
   const [dataSafetySummary, setDataSafetySummary] = React.useState<DataSafetySummary | null>(null);
   const [systemHealthResult, setSystemHealthResult] = React.useState<SystemHealthResult | null>(null);
   const [projectHealthResult, setProjectHealthResult] = React.useState<ProjectHealthResult | null>(null);
@@ -896,6 +905,51 @@ function App() {
     );
   };
 
+  const stopCadPipelinePolling = React.useCallback(() => {
+    if (cadPipelineJobPollRef.current !== null) {
+      window.clearInterval(cadPipelineJobPollRef.current);
+      cadPipelineJobPollRef.current = null;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      stopCadPipelinePolling();
+    };
+  }, [stopCadPipelinePolling]);
+
+  const finalizeCadPipelineJob = React.useCallback(
+    (job: BackgroundJobStatus) => {
+      stopCadPipelinePolling();
+      setCadPipelineJob(job);
+      setCadPipelineStartedAt(null);
+      setBusyAction("");
+      const projectId = cadPipelineProjectIdRef.current;
+      if (job.result_summary) {
+        setCadPipelineResult(job.result_summary);
+        setCadPipelineElapsed(job.result_summary.summary.duration_seconds);
+      }
+      if (job.status === "failed") {
+        setCadPipelineError(job.message || "CAD 批量处理失败。");
+      } else {
+        setCadPipelineError("");
+      }
+      if (projectId !== null) {
+        loadProjectFiles(projectId);
+        loadProjectSheets(projectId);
+        loadConversionRuns(projectId);
+        refreshProjects();
+      }
+    },
+    [
+      loadConversionRuns,
+      loadProjectFiles,
+      loadProjectSheets,
+      refreshProjects,
+      stopCadPipelinePolling
+    ]
+  );
+
   const handleRunCadPipeline = (batchId: number) => {
     if (!selectedProject) {
       return;
@@ -919,18 +973,39 @@ function App() {
     setCadPipelineStartedAt(startedAt);
     setCadPipelineElapsed(0);
     setCadPipelineResult(null);
-    runCadPipeline(batchId, payload)
-      .then((result) => {
-        setCadPipelineResult(result);
-        setCadPipelineElapsed(result.summary.duration_seconds);
-        setCadPipelineError("");
-        loadProjectFiles(selectedProject.id);
-        loadProjectSheets(selectedProject.id);
-        loadConversionRuns(selectedProject.id);
-        refreshProjects();
+    setCadPipelineJob(null);
+    setCadPipelineError("");
+    cadPipelineProjectIdRef.current = selectedProject.id;
+    stopCadPipelinePolling();
+
+    startCadPipeline(batchId, payload)
+      .then((initial) => {
+        setCadPipelineJob(initial);
+        if (initial.status !== "running") {
+          finalizeCadPipelineJob(initial);
+          return;
+        }
+        cadPipelineJobPollRef.current = window.setInterval(() => {
+          getCadPipelineJob(batchId)
+            .then((job) => {
+              if (job === null) {
+                return;
+              }
+              setCadPipelineJob(job);
+              if (job.status !== "running") {
+                finalizeCadPipelineJob(job);
+              }
+            })
+            .catch((error) => {
+              stopCadPipelinePolling();
+              setCadPipelineError(formatApiError(error, "无法获取 CAD 流水线进度"));
+              setCadPipelineStartedAt(null);
+              setBusyAction("");
+            });
+        }, 2000);
       })
-      .catch((error) => setCadPipelineError(formatApiError(error, "CAD 批量处理失败")))
-      .finally(() => {
+      .catch((error) => {
+        setCadPipelineError(formatApiError(error, "CAD 批量处理启动失败"));
         setCadPipelineStartedAt(null);
         setBusyAction("");
       });
@@ -989,11 +1064,41 @@ function App() {
       .catch(() => setRecognitionError("批量 PDF 文本提取失败，请稍后重试"));
   };
 
+  const stopOcrJobPolling = React.useCallback(() => {
+    if (ocrJobPollRef.current !== null) {
+      window.clearInterval(ocrJobPollRef.current);
+      ocrJobPollRef.current = null;
+    }
+  }, []);
+
+  React.useEffect(() => stopOcrJobPolling, [stopOcrJobPolling]);
+
   const handleOcrBatchTitles = (batchId: number) => {
+    stopOcrJobPolling();
     ocrBatchTitles(batchId)
-      .then((result) => {
-        setRecognitionResult(result);
+      .then((job) => {
+        setOcrJob(job);
         setRecognitionError("");
+        if (job.status === "running") {
+          ocrJobPollRef.current = window.setInterval(() => {
+            getOcrBatchJob(batchId)
+              .then((next) => {
+                setOcrJob(next);
+                if (next.status === "completed" || next.status === "failed") {
+                  stopOcrJobPolling();
+                  if (next.status === "failed" && next.message) {
+                    setRecognitionError(`批量 OCR 失败：${next.message}`);
+                  }
+                }
+              })
+              .catch(() => {
+                stopOcrJobPolling();
+                setRecognitionError("批量 OCR 进度查询失败");
+              });
+          }, 2000);
+        } else if (job.status === "failed" && job.message) {
+          setRecognitionError(`批量 OCR 失败：${job.message}`);
+        }
       })
       .catch(() => setRecognitionError("批量标题栏 OCR 失败，请确认已生成标题栏裁剪图"));
   };
@@ -2085,11 +2190,33 @@ function App() {
                 >
                   {selectedProject && busyAction === `cad-preview-project-${selectedProject.id}` ? "正在生成项目预览..." : "项目级批量生成 CAD 预览"}
                 </button>
-                {latestBatchId && busyAction === `cad-pipeline-${latestBatchId}` ? (
+                {cadPipelineJob && cadPipelineJob.status === "running" ? (
                   <div className="pipeline-running">
                     <strong>正在批量处理，请勿关闭页面</strong>
-                    <span>当前步骤：{cadPipelineSteps.map(pipelineStepLabel).join(" → ")}</span>
-                    <span>已完成步骤：同步执行中，完成后显示每一步结果</span>
+                    <span>
+                      步骤 {cadPipelineJob.processed}/{cadPipelineJob.total}
+                      {cadPipelineJob.current_step
+                        ? `：${pipelineStepLabel(cadPipelineJob.current_step as CadPipelineStep)}`
+                        : ""}
+                    </span>
+                    <div
+                      style={{
+                        background: "rgba(0,0,0,0.06)",
+                        borderRadius: 999,
+                        height: 6,
+                        overflow: "hidden",
+                        margin: "8px 0"
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${cadPipelineJob.total ? (cadPipelineJob.processed / cadPipelineJob.total) * 100 : 0}%`,
+                          height: "100%",
+                          background: "#7ea4ff",
+                          transition: "width 200ms ease"
+                        }}
+                      />
+                    </div>
                     <span>耗时：{formatDuration(cadPipelineElapsed)}</span>
                   </div>
                 ) : null}
@@ -2637,6 +2764,45 @@ function App() {
                       </div>
                     ))}
                   </div>
+                </div>
+              ) : null}
+
+              {ocrJob ? (
+                <div className="split-result">
+                  <div className="section-title">
+                    <h3>批量标题栏 OCR</h3>
+                    <span>
+                      {ocrJob.processed}/{ocrJob.total}
+                      {ocrJob.status === "running" ? " 处理中" : ocrJob.status === "completed" ? " 完成" : ocrJob.status === "failed" ? " 失败" : ""}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      background: "rgba(0,0,0,0.06)",
+                      borderRadius: 999,
+                      height: 6,
+                      overflow: "hidden",
+                      margin: "8px 0"
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${ocrJob.total ? (ocrJob.processed / ocrJob.total) * 100 : 0}%`,
+                        height: "100%",
+                        background:
+                          ocrJob.status === "failed"
+                            ? "#f5a4a4"
+                            : ocrJob.status === "completed"
+                            ? "#7ec8a8"
+                            : "#7ea4ff",
+                        transition: "width 200ms ease"
+                      }}
+                    />
+                  </div>
+                  <p>
+                    成功 {ocrJob.success_count}，失败 {ocrJob.failed_count}
+                    {ocrJob.message ? `（${ocrJob.message}）` : ""}
+                  </p>
                 </div>
               ) : null}
 

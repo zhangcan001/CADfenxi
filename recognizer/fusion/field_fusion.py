@@ -33,6 +33,16 @@ def value_key(candidate) -> str:
     return (candidate.normalized_value or candidate.candidate_value or "").strip()
 
 
+def has_bbox(candidate) -> bool:
+    """候选是否携带位置信息（来自 cad_text/cad_mtext/cad_block_attr 的标题栏区域加权）。"""
+    bbox = getattr(candidate, "bbox", None)
+    if not bbox:
+        return False
+    if isinstance(bbox, str):
+        return bool(bbox.strip())
+    return True
+
+
 def choose_field_value(candidates: list) -> FusionChoice | None:
     usable = [candidate for candidate in candidates if value_key(candidate)]
     if not usable:
@@ -47,6 +57,7 @@ def choose_field_value(candidates: list) -> FusionChoice | None:
         key=lambda item: (
             min(SOURCE_PRIORITY.get(candidate.source_type, 99) for candidate in item[1]),
             -len(item[1]),
+            -sum(1 for candidate in item[1] if has_bbox(candidate)),
             -max(candidate.confidence for candidate in item[1]),
         ),
     )
@@ -56,6 +67,7 @@ def choose_field_value(candidates: list) -> FusionChoice | None:
         best_group,
         key=lambda candidate: (
             SOURCE_PRIORITY.get(candidate.source_type, 99),
+            0 if has_bbox(candidate) else 1,
             -candidate.confidence,
             candidate.id,
         ),

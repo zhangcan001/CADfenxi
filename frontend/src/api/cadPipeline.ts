@@ -1,4 +1,4 @@
-import { apiPost } from "./client";
+import { apiGet, apiPost } from "./client";
 
 export type CadPipelineStep =
   | "convert_dwg"
@@ -75,12 +75,30 @@ export type CadPipelineResponse = {
   errors: CadPipelineError[];
 };
 
-export function runCadPipeline(
+export type BackgroundJobStatus = {
+  id: number;
+  job_type: string;
+  scope_type: "batch" | "project" | "sheet";
+  scope_id: number;
+  status: "running" | "completed" | "failed";
+  total: number;
+  processed: number;
+  current_step: string | null;
+  message: string | null;
+  started_at: string;
+  finished_at: string | null;
+  result_summary: CadPipelineResponse | null;
+};
+
+export function startCadPipeline(
   batchId: number,
   payload: CadPipelineRequest
-): Promise<CadPipelineResponse> {
-  // Full pipeline over a batch can be very long: convert + parse + fuse for many files.
-  return apiPost<CadPipelineResponse>(`/api/imports/${batchId}/cad-pipeline`, payload, {
-    timeoutMs: 1_800_000
-  });
+): Promise<BackgroundJobStatus> {
+  return apiPost<BackgroundJobStatus>(`/api/imports/${batchId}/cad-pipeline`, payload);
+}
+
+export function getCadPipelineJob(
+  batchId: number
+): Promise<BackgroundJobStatus | null> {
+  return apiGet<BackgroundJobStatus | null>(`/api/imports/${batchId}/cad-pipeline/job`);
 }

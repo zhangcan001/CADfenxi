@@ -20,6 +20,14 @@ class ImportBatch(Base):
     failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     confirmed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     remark: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    ocr_job_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ocr_job_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ocr_job_processed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ocr_job_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ocr_job_finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ocr_job_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -14,7 +14,14 @@ from backend.models.drawing_sheet import DrawingSheet
 from backend.models.export_record import ExportRecord
 from backend.models.field_value import FieldValue
 from backend.models.recognition_candidate import RecognitionCandidate
-from dwg_test_helpers import DWG_BYTES, DXF_TEXT, clear_converter_tables, create_converter_setting, write_mock_converter
+from dwg_test_helpers import (
+    DWG_BYTES,
+    DXF_TEXT,
+    clear_converter_tables,
+    create_converter_setting,
+    run_cad_pipeline_blocking,
+    write_mock_converter,
+)
 from scripts.build_portable_package import DEFAULT_VERSION, build_portable_package, package_name
 from test_cad_preview import prepare_dxf_sheet
 from test_full_flow_stability_v055 import make_pdf_bytes, title_block_dxf
@@ -206,9 +213,10 @@ def test_v10_cad_pipeline_review_workbench_and_manual_field_protection(tmp_path:
         batch_id = upload["id"]
         pdf_file_id = next(item["id"] for item in upload["files"] if item["source_format"] == "pdf")
         assert client.post(f"/api/files/{pdf_file_id}/split").status_code == 200
-        pipeline = client.post(
-            f"/api/imports/{batch_id}/cad-pipeline",
-            json={
+        pipeline = run_cad_pipeline_blocking(
+            client,
+            batch_id,
+            {
                 "steps": [
                     "convert_dwg",
                     "prepare_dxf_sheet",
@@ -232,9 +240,10 @@ def test_v10_cad_pipeline_review_workbench_and_manual_field_protection(tmp_path:
             json={"force": False, "note": "v1.0 open error 拦截"},
         )
         confirm = client.post(f"/api/sheets/{dxf_sheet_id}/confirm", json={"force": True, "note": "v1.0 确认"})
-        rerun = client.post(
-            f"/api/imports/{batch_id}/cad-pipeline",
-            json={"steps": ["generate_candidates", "fuse_fields"], "skip_completed": False, "continue_on_error": True},
+        rerun = run_cad_pipeline_blocking(
+            client,
+            batch_id,
+            {"steps": ["generate_candidates", "fuse_fields"], "skip_completed": False, "continue_on_error": True},
         )
         after = client.get(f"/api/sheets/{dxf_sheet_id}").json()
         batch_confirm = client.post(
@@ -243,8 +252,7 @@ def test_v10_cad_pipeline_review_workbench_and_manual_field_protection(tmp_path:
         )
         export = export_excel(client, project_id)
 
-    assert pipeline.status_code == 200, pipeline.text
-    data = pipeline.json()
+    data = pipeline
     assert data["summary"]["pdf_files"] == 1
     assert data["summary"]["dxf_files"] == 1
     assert data["summary"]["dwg_files"] == 1
@@ -254,7 +262,7 @@ def test_v10_cad_pipeline_review_workbench_and_manual_field_protection(tmp_path:
     assert update.status_code == 200, update.text
     assert blocked_confirm.status_code == 400
     assert confirm.status_code == 200, confirm.text
-    assert rerun.status_code == 200, rerun.text
+    assert rerun["status"] in {"success", "completed_with_errors", "skipped", "failed"}
     assert after["drawing_no"] == "人工-092"
     assert after["review_status"] == "confirmed"
     assert field_value(dxf_sheet_id, "drawing_no").is_reviewed is True

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -39,3 +40,15 @@ class BatchRecognitionResult(BaseModel):
     success_count: int
     failed_count: int
     items: list[RecognitionRunResult]
+
+
+class OcrJobStatus(BaseModel):
+    batch_id: int
+    status: Literal["idle", "running", "completed", "failed"]
+    total: int
+    processed: int
+    success_count: int
+    failed_count: int
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    message: str | None = None

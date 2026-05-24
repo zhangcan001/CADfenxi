@@ -34,3 +34,19 @@ def normalize_issue_date(value: str) -> str | None:
         return date(year, month, 1).isoformat()
     except ValueError:
         return None
+
+
+def is_full_date_text(value: str) -> bool:
+    """文本是否为完整日期格式（YYYY-MM-DD / YYYY年MM月DD日 / YYYYMMDD）。
+
+    用于区分 ATTRIB / 标签命中的高置信日期 vs 文中扫到的"2024年5月某规范"
+    这类带月份的引用文本。
+    """
+    text = (value or "").strip()
+    if re.fullmatch(r"\d{8}", text):
+        return True
+    if re.search(r"\d{4}[年./-]\d{1,2}[月./-]\d{1,2}日?", text):
+        return True
+    if re.fullmatch(r"\d{2}[./-]\d{2}[./-]\d{2}", text):
+        return True
+    return False

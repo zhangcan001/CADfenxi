@@ -4,7 +4,9 @@ from recognizer.filename_parser.parser import find_date, find_drawing_no, find_v
 from recognizer.normalizer.date import normalize_issue_date
 from recognizer.normalizer.discipline import infer_discipline
 from recognizer.normalizer.drawing_no import (
+    is_blacklisted_drawing_no,
     is_component_or_axis_no,
+    is_plausible_drawing_no,
     is_supported_drawing_no,
     normalize_drawing_no,
 )
@@ -23,10 +25,13 @@ def parse_text(text: str, source_type: str) -> list[dict]:
         text,
         ["图号", "图纸编号", "图纸编码", "施工图编号", "专业图号", "Drawing No", "Sheet No"],
     ) or find_drawing_no(text)
-    if drawing_no:
-        confidence = base["drawing_no"]
-        if is_component_or_axis_no(drawing_no) or not is_supported_drawing_no(drawing_no):
-            confidence = min(confidence, 45)
+    if drawing_no and not is_blacklisted_drawing_no(drawing_no):
+        if is_supported_drawing_no(drawing_no):
+            confidence = base["drawing_no"]
+        elif is_plausible_drawing_no(drawing_no):
+            confidence = max(base["drawing_no"] - 20, 50)
+        else:
+            confidence = min(base["drawing_no"], 45)
         if not is_component_or_axis_no(drawing_no):
             candidates.append(candidate("drawing_no", drawing_no, normalize_drawing_no(drawing_no), confidence, raw, source_type))
 
@@ -47,7 +52,35 @@ def parse_text(text: str, source_type: str) -> list[dict]:
     if discipline:
         candidates.append(candidate("discipline", discipline, discipline, base["discipline"], raw, source_type))
 
+    # 签字栏字段（#9）
+    for field_name, labels in SIGNATURE_LABELS.items():
+        value = find_labeled_value(text, labels)
+        if value and is_plausible_person_name(value):
+            candidates.append(candidate(field_name, value, value, base.get(field_name, 65), raw, source_type))
+
     return candidates
+
+
+SIGNATURE_LABELS = {
+    "designer": ["设计", "设计人", "设计者", "Designer", "Design By"],
+    "drafter": ["制图", "制图人", "绘图", "绘图人", "Drafter", "Drawn By"],
+    "reviewer": ["审核", "审核人", "审图", "Reviewer", "Reviewed By"],
+    "checker": ["校对", "校对人", "校核", "校核人", "Checker", "Checked By"],
+    "approver": ["审定", "审定人", "批准", "批准人", "Approver", "Approved By"],
+}
+
+
+def is_plausible_person_name(value: str) -> bool:
+    """姓名通常 2-6 字（中文）或 2-30 字（英文/拼音），不含明显非姓名字符。"""
+    text = (value or "").strip()
+    if not text or len(text) > 30:
+        return False
+    # 排除日期/版本/数字串误命中
+    if any(char in text for char in ["年", "月", "日", "：", ":"]):
+        return False
+    if text.replace(".", "").replace("-", "").isdigit():
+        return False
+    return True
 
 
 def find_labeled_value(text: str, labels: list[str]) -> str | None:

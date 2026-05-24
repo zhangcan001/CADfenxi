@@ -28,6 +28,7 @@ def init_database() -> None:
     settings.ensure_storage()
     with sqlite3.connect(settings.database_path) as connection:
         connection.execute("PRAGMA journal_mode=WAL;")
+    import backend.models.background_job
     import backend.models.cad_conversion_run
     import backend.models.backup_record
     import backend.models.converter_setting

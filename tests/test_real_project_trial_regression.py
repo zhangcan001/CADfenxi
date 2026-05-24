@@ -16,6 +16,7 @@ from dwg_test_helpers import (
     clear_converter_tables,
     create_converter_setting,
     create_project,
+    run_cad_pipeline_blocking,
     write_mock_converter,
 )
 from scripts.build_portable_package import DEFAULT_VERSION
@@ -55,9 +56,7 @@ def run_cad_pipeline(client: TestClient, batch_id: int, **overrides) -> dict:
         "continue_on_error": True,
     }
     payload.update(overrides)
-    response = client.post(f"/api/imports/{batch_id}/cad-pipeline", json=payload)
-    assert response.status_code == 200, response.text
-    return response.json()
+    return run_cad_pipeline_blocking(client, batch_id, payload)
 
 
 def field_values_for_sheet(sheet_id: int) -> dict[str, FieldValue]:

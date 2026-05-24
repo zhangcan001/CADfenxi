@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from backend.core.database import get_db
 from backend.schemas.recognition_run import (
     BatchRecognitionResult,
+    OcrJobStatus,
     RecognitionRunRead,
     RecognitionRunResult,
 )
@@ -27,9 +28,14 @@ def extract_batch_text(batch_id: int, db: Session = Depends(get_db)) -> BatchRec
     return pdf_text_service.extract_text_for_batch(db, batch_id)
 
 
-@router.post("/imports/{batch_id}/ocr-titles", response_model=BatchRecognitionResult)
-def ocr_batch_titles(batch_id: int, db: Session = Depends(get_db)) -> BatchRecognitionResult:
-    return ocr_service.ocr_titles_for_batch(db, batch_id)
+@router.post("/imports/{batch_id}/ocr-titles", response_model=OcrJobStatus)
+def ocr_batch_titles(batch_id: int, db: Session = Depends(get_db)) -> OcrJobStatus:
+    return ocr_service.start_ocr_batch_job(db, batch_id)
+
+
+@router.get("/imports/{batch_id}/ocr-job", response_model=OcrJobStatus)
+def get_ocr_batch_job(batch_id: int, db: Session = Depends(get_db)) -> OcrJobStatus:
+    return ocr_service.get_ocr_batch_job(db, batch_id)
 
 
 @router.get("/sheets/{sheet_id}/recognition-runs", response_model=list[RecognitionRunRead])

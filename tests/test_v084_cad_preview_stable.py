@@ -8,7 +8,13 @@ from backend.core.database import SessionLocal
 from backend.main import app
 from backend.models.drawing_file import DrawingFile
 from backend.models.drawing_sheet import DrawingSheet
-from dwg_test_helpers import DWG_BYTES, clear_converter_tables, create_converter_setting, write_mock_converter
+from dwg_test_helpers import (
+    DWG_BYTES,
+    clear_converter_tables,
+    create_converter_setting,
+    run_cad_pipeline_blocking,
+    write_mock_converter,
+)
 from scripts.build_portable_package import build_portable_package, package_name
 from test_cad_preview import prepare_dxf_sheet
 from test_full_flow_stability_v055 import make_pdf_bytes, title_block_dxf
@@ -159,9 +165,10 @@ def test_v084_pipeline_preview_failure_does_not_block_export():
     with TestClient(app) as client:
         project_id = create_project(client, "v0.8.4 pipeline 预览稳定")
         _file_id, _sheet_id, batch_id = prepare_dxf_sheet(client, project_id, "v084-pipeline.dxf")
-        pipeline = client.post(
-            f"/api/imports/{batch_id}/cad-pipeline",
-            json={
+        pipeline = run_cad_pipeline_blocking(
+            client,
+            batch_id,
+            {
                 "steps": ["parse_dxf", "generate_candidates", "fuse_fields", "generate_cad_preview"],
                 "skip_completed": True,
                 "continue_on_error": True,
@@ -172,9 +179,8 @@ def test_v084_pipeline_preview_failure_does_not_block_export():
             json={"confirm_incomplete": True, "include_issues": True, "filter": None},
         )
 
-    assert pipeline.status_code == 200, pipeline.text
-    assert pipeline.json()["summary"]["cad_preview_success"] == 1
-    assert pipeline.json()["summary"]["fusion_success"] >= 1
+    assert pipeline["summary"]["cad_preview_success"] == 1
+    assert pipeline["summary"]["fusion_success"] >= 1
     assert export.status_code == 200, export.text
 
 
