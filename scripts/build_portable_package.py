@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-DEFAULT_VERSION = "v1.0.2-fast-stable"
+DEFAULT_VERSION = "v1.1.1-fast-fix"
 PACKAGE_PREFIX = "工程图纸智能台账识别系统"
 
 
@@ -127,7 +127,7 @@ def create_app_data(package_dir: Path) -> bool:
 
 def write_package_info(package_dir: Path, version: str, tests_status: str) -> Path:
     package_info_path = package_dir / "package_info.txt"
-    if version in {"v1.0-local-stable", "v1.0.1-local-stable-fix", "v1.0.2-fast-stable"}:
+    if version in {"v1.0-local-stable", "v1.0.1-local-stable-fix", "v1.0.2-fast-stable", "v1.1-fast-ux", "v1.1.1-fast-fix"}:
         package_type = "Windows 本地便携正式稳定版"
         important_limit_line = "重要限制：不直接解析 DWG，不做 CAD 编辑，不做算量 / BIM / AI 图纸问答。"
         backup_line = "备份说明：关闭系统后复制 app_data 目录即可备份全部数据。"

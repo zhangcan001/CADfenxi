@@ -15,7 +15,7 @@ from scripts.build_portable_package import DEFAULT_VERSION
 from test_project_backup_restore import create_project, upload_files
 
 
-VERSION = "v1.0.2-fast-stable"
+VERSION = "v1.1.1-fast-fix"
 ROOT = Path(__file__).resolve().parents[1]
 
 

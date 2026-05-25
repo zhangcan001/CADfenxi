@@ -4,9 +4,11 @@ import {
   createProject,
   deleteProject,
   getProject,
+  getProjectWorkbenchSummary,
   listProjects,
   updateProject,
-  type Project
+  type Project,
+  type ProjectWorkbenchSummary
 } from "./api/projects";
 import {
   listProjectFiles,
@@ -248,11 +250,30 @@ function HealthIssueList({ items }: { items: DataHealthItem[] }) {
   );
 }
 
+type QuickAction = {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  reason?: string;
+};
+
+function QuickActionButton({ action }: { action: QuickAction }) {
+  return (
+    <div className="quick-action">
+      <button type="button" onClick={action.onClick} disabled={action.disabled} title={action.disabled ? action.reason : undefined}>
+        {action.label}
+      </button>
+      {action.disabled && action.reason ? <span>{action.reason}</span> : null}
+    </div>
+  );
+}
+
 function App() {
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = React.useState(false);
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = React.useState<Project | null>(null);
+  const [workbenchSummary, setWorkbenchSummary] = React.useState<ProjectWorkbenchSummary | null>(null);
   const [loadingProjects, setLoadingProjects] = React.useState(true);
   const [projectError, setProjectError] = React.useState("");
   const [formError, setFormError] = React.useState("");
@@ -456,6 +477,19 @@ function App() {
       .then((project) => {
         setProjects((current) => [project, ...current]);
         setSelectedProject(project);
+        setWorkbenchSummary({
+          project_id: project.id,
+          drawing_sheet_count: 0,
+          unreviewed_count: 0,
+          low_confidence_count: 0,
+          missing_drawing_no_count: 0,
+          missing_drawing_name_count: 0,
+          open_error_count: 0,
+          open_warning_count: 0,
+          cad_preview_missing_count: 0,
+          last_export_at: null,
+          last_backup_at: null
+        });
         setProjectFiles([]);
         setSheets([]);
         setSheetPage({ items: [], total: 0, page: 1, page_size: 20, total_pages: 0 });
@@ -479,6 +513,7 @@ function App() {
     getProject(projectId)
       .then((project) => {
         setSelectedProject(project);
+        loadWorkbenchSummary(project.id);
         setEditing(false);
         setEditName(project.name);
         setEditDescription(project.description ?? "");
@@ -518,6 +553,7 @@ function App() {
     listExports(projectId)
       .then(setExportRecords)
       .catch(() => setExportRecords([]));
+    loadWorkbenchSummary(projectId);
     loadConversionRuns(projectId);
   };
 
@@ -547,6 +583,12 @@ function App() {
       .catch(() => setBackupRecords([]));
   };
 
+  const loadWorkbenchSummary = (projectId: number) => {
+    getProjectWorkbenchSummary(projectId)
+      .then(setWorkbenchSummary)
+      .catch(() => setWorkbenchSummary(null));
+  };
+
   const updateSheetQuery = (patch: SheetQuery) => {
     if (!selectedProject) {
       return;
@@ -571,6 +613,34 @@ function App() {
       missing_field: undefined
     };
     updateSheetQuery({ ...reset, ...patch, page: 1 });
+  };
+
+  const openReviewFilter = (patch: SheetQuery) => {
+    applyQuickFilter(patch);
+    const target = sheets.find((sheet) => {
+      if (patch.review_status && sheet.review_status !== patch.review_status) {
+        return false;
+      }
+      if (patch.low_confidence && !["C", "D"].includes(sheet.trust_level ?? "")) {
+        return false;
+      }
+      if (patch.missing_field === "drawing_no" && sheet.drawing_no) {
+        return false;
+      }
+      if (patch.missing_field === "drawing_name" && sheet.drawing_name) {
+        return false;
+      }
+      if (patch.has_error && sheet.error_count === 0) {
+        return false;
+      }
+      if (patch.has_warning && sheet.warning_count === 0) {
+        return false;
+      }
+      return true;
+    });
+    if (target) {
+      openReviewWorkbench(target);
+    }
   };
 
   const handleUpdateProject = (event: React.FormEvent<HTMLFormElement>) => {
@@ -606,6 +676,7 @@ function App() {
         setProjects((current) => current.filter((item) => item.id !== projectId));
         if (selectedProject?.id === projectId) {
           setSelectedProject(null);
+          setWorkbenchSummary(null);
           setProjectFiles([]);
           setSheets([]);
           setSheetPage({ items: [], total: 0, page: 1, page_size: 20, total_pages: 0 });
@@ -629,7 +700,7 @@ function App() {
     setImportResult(null);
     setImportError(
       invalidFiles.length > 0
-          ? "当前仅支持 PDF、DXF 和 DWG 文件。"
+        ? "当前仅支持 PDF、DXF 和 DWG 文件。"
         : ""
     );
   };
@@ -640,7 +711,7 @@ function App() {
       return;
     }
     if (selectedFiles.length === 0) {
-      setImportError("请选择至少一个 PDF 或 DXF 文件");
+      setImportError("请选择至少一个 PDF / DXF / DWG 文件");
       return;
     }
 
@@ -656,6 +727,7 @@ function App() {
         setBatchName("");
         setRemark("");
         loadProjectFiles(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         loadConversionRuns(selectedProject.id);
       })
       .catch((error) => setImportError(formatApiError(error, "导入失败，请确认文件格式和本地服务状态")));
@@ -671,6 +743,7 @@ function App() {
         setSplitError("");
         loadProjectFiles(selectedProject.id);
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         refreshProjects();
       })
       .catch(() => setSplitError("生成图纸页预览失败，请稍后重试"));
@@ -688,6 +761,7 @@ function App() {
         setDxfPrepareError("");
         loadProjectFiles(selectedProject.id);
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         refreshProjects();
       })
       .catch((error) => setDxfPrepareError(formatApiError(error, "准备 DXF 图纸页失败，请稍后重试")))
@@ -706,6 +780,7 @@ function App() {
         setDxfPrepareError("");
         loadProjectFiles(selectedProject.id);
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         refreshProjects();
       })
       .catch((error) => setDxfPrepareError(formatApiError(error, "批量准备 DXF 图纸页失败，请稍后重试")))
@@ -724,6 +799,7 @@ function App() {
         setCadParseError("");
         loadProjectFiles(selectedProject.id);
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         refreshProjects();
       })
       .catch((error) => setCadParseError(formatApiError(error, "解析 DXF 失败，请稍后重试")))
@@ -742,6 +818,7 @@ function App() {
         setCadParseError("");
         loadProjectFiles(selectedProject.id);
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         refreshProjects();
       })
       .catch((error) => setCadParseError(formatApiError(error, "批量解析 DXF 失败，请稍后重试")))
@@ -772,6 +849,7 @@ function App() {
         setBatchCadPreviewResult(null);
         setCadPreviewError("");
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         getSheet(sheetId).then((sheet) => {
           setDetailSheet((current) => (current?.id === sheetId ? sheet : current));
           setPreviewSheet((current) => (current?.id === sheetId ? sheet : current));
@@ -799,6 +877,7 @@ function App() {
         setCadPreviewResult(null);
         setCadPreviewError("");
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
       })
       .catch((error) => setCadPreviewError(formatApiError(error, "批量生成 CAD 图形预览失败")))
       .finally(() => setBusyAction(""));
@@ -813,6 +892,7 @@ function App() {
         setCadPreviewResult(null);
         setCadPreviewError("");
         loadProjectSheets(projectId);
+        loadWorkbenchSummary(projectId);
       })
       .catch((error) => setCadPreviewError(formatApiError(error, "项目级批量生成 CAD 图形预览失败")))
       .finally(() => setBusyAction(""));
@@ -873,6 +953,7 @@ function App() {
         setConverterError(result.status === "failed" ? `${result.error_code}：${result.error_message}` : "");
         loadProjectFiles(selectedProject.id);
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         loadConversionRuns(selectedProject.id);
       })
       .catch((error) => setConverterError(formatApiError(error, "DWG 转 DXF 失败")))
@@ -891,6 +972,7 @@ function App() {
         setConverterError(result.failed_count > 0 ? "部分 DWG 转换失败，请查看转换历史。" : "");
         loadProjectFiles(selectedProject.id);
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         loadConversionRuns(selectedProject.id);
       })
       .catch((error) => setConverterError(formatApiError(error, "批量 DWG 转 DXF 失败")))
@@ -937,6 +1019,7 @@ function App() {
       if (projectId !== null) {
         loadProjectFiles(projectId);
         loadProjectSheets(projectId);
+        loadWorkbenchSummary(projectId);
         loadConversionRuns(projectId);
         refreshProjects();
       }
@@ -1033,6 +1116,7 @@ function App() {
         setTitleCropResult(result);
         setTitleCropError("");
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
       })
       .catch(() => setTitleCropError("批量生成标题栏裁剪图失败，请稍后重试"));
   };
@@ -1128,6 +1212,9 @@ function App() {
         setCandidates(result.candidates);
         setCandidatesSheetId(sheetId);
         setCandidateError("");
+        if (selectedProject) {
+          loadWorkbenchSummary(selectedProject.id);
+        }
       })
       .catch((error) => setCandidateError(formatApiError(error, "候选值生成失败。DXF 请先解析 DXF，再生成候选值。PDF 请先完成文本提取或 OCR 原始结果")))
       .finally(() => setBusyAction(""));
@@ -1138,6 +1225,9 @@ function App() {
       .then((result) => {
         setCandidateResult(result);
         setCandidateError("");
+        if (selectedProject) {
+          loadWorkbenchSummary(selectedProject.id);
+        }
       })
       .catch(() => setCandidateError("批量生成候选值失败"));
   };
@@ -1171,6 +1261,7 @@ function App() {
         setFieldValuesSheetId(sheetId);
         setFusionError("");
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
       })
       .catch((error) => setFusionError(formatApiError(error, "生成推荐字段失败，请确认已生成候选值")))
       .finally(() => setBusyAction(""));
@@ -1185,6 +1276,7 @@ function App() {
         setFusionResult(result);
         setFusionError("");
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
         refreshProjects();
       })
       .catch(() => setFusionError("批量生成推荐字段失败"));
@@ -1234,6 +1326,7 @@ function App() {
   const refreshReviewContext = (sheetId: number) => {
     if (selectedProject) {
       loadProjectSheets(selectedProject.id);
+      loadWorkbenchSummary(selectedProject.id);
     }
     getSheet(sheetId).then((sheet) => {
       setReviewSheet(sheet);
@@ -1379,6 +1472,7 @@ function App() {
       .then((result) => {
         setBatchConfirmResult(result);
         loadProjectSheets(selectedProject.id);
+        loadWorkbenchSummary(selectedProject.id);
       })
       .catch(() => setReviewError("批量确认失败"));
   };
@@ -1423,6 +1517,7 @@ function App() {
       .then((result) => {
         setExportResult(result);
         setExportError("");
+        loadWorkbenchSummary(selectedProject.id);
         listExports(selectedProject.id).then(setExportRecords);
       })
       .catch(() => setExportError("导出失败：项目无图纸、导出目录不可写或 Excel 文件写入失败"));
@@ -1437,6 +1532,7 @@ function App() {
       .then((result) => {
         setBackupResult(result);
         setBackupError("");
+        loadWorkbenchSummary(selectedProject.id);
         loadProjectBackups(selectedProject.id);
       })
       .catch((error) => setBackupError(formatApiError(error, "项目备份创建失败，请稍后重试")))
@@ -1510,6 +1606,7 @@ function App() {
       .then((result) => {
         setProjectHealthResult(result);
         setOrphanScanResult(null);
+        loadWorkbenchSummary(selectedProject.id);
       })
       .catch((error) => setMaintenanceError(formatApiError(error, "项目完整性检查失败")))
       .finally(() => setMaintenanceBusy(""));
@@ -1626,7 +1723,7 @@ function App() {
     (file) => file.source_format === "dwg" && file.convert_status !== "success"
   );
   const pendingDxfFiles = projectFiles.filter(
-    (file) => file.source_format === "dxf" && file.status !== "cad_pending"
+    (file) => file.source_format === "dxf" && file.status === "imported"
   );
   const dxfSheetCount = sheets.filter((sheet) => sheet.source_format === "dxf").length;
   const dxfParsedCount = sheets.filter((sheet) => sheet.source_format === "dxf" && ["cad_parsed", "recognized", "need_review", "confirmed"].includes(sheet.status)).length;
@@ -1652,6 +1749,164 @@ function App() {
     ocrEmpty: issues.filter((issue) => issue.issue_code === "OCR_TEXT_EMPTY").length,
     cadBlockAttrMissing: issues.filter((issue) => issue.issue_code === "CAD_BLOCK_ATTR_MISSING").length
   };
+  const summarySheetCount = workbenchSummary?.drawing_sheet_count ?? selectedProject?.stats.sheet_count ?? 0;
+  const summaryUnreviewedCount = workbenchSummary?.unreviewed_count ?? selectedProject?.stats.need_review_count ?? 0;
+  const summaryLowConfidenceCount = workbenchSummary?.low_confidence_count ?? issueSummary.lowConfidence;
+  const summaryMissingDrawingNoCount = workbenchSummary?.missing_drawing_no_count ?? issueSummary.missingDrawingNo;
+  const summaryMissingDrawingNameCount = workbenchSummary?.missing_drawing_name_count ?? issueSummary.missingDrawingName;
+  const summaryOpenErrorCount = workbenchSummary?.open_error_count ?? selectedProject?.stats.error_issue_count ?? issueSummary.error;
+  const summaryOpenWarningCount = workbenchSummary?.open_warning_count ?? selectedProject?.stats.warning_issue_count ?? issueSummary.warning;
+  const fallbackCadPreviewMissingCount = sheets.filter(
+    (sheet) =>
+      ["dxf", "dwg"].includes(sheet.source_format) &&
+      (!sheet.cad_preview_path || sheet.cad_preview_status !== "success")
+  ).length;
+  const summaryCadPreviewMissingCount = workbenchSummary?.cad_preview_missing_count ?? fallbackCadPreviewMissingCount;
+  const hasDxfWorkPending =
+    pendingDxfFiles.length > 0 ||
+    pendingDwgFiles.length > 0 ||
+    projectFiles.some((file) => file.source_format === "dwg" && file.convert_status === "success" && file.status === "imported") ||
+    sheets.some((sheet) => sheet.source_format === "dxf" && sheet.status === "cad_pending");
+  const hasCandidatePending = sheets.some((sheet) =>
+    ["preprocessed", "cad_pending", "cad_parsed"].includes(sheet.status)
+  );
+  const canRunCadPipeline = Boolean(latestBatchId && (dxfFileCount > 0 || dwgFileCount > 0 || convertedDwgCount > 0));
+  const canGenerateCadPreview =
+    summaryCadPreviewMissingCount > 0;
+  const canExportProject = summarySheetCount > 0;
+  const canBackupProject = Boolean(selectedProject);
+  const nextStep = (() => {
+    if (projectFiles.length === 0 && summarySheetCount === 0) {
+      return {
+        message: "请先导入 PDF / DXF / DWG 图纸。",
+        actions: [{ label: "导入图纸", onClick: () => setImportOpen(true) }]
+      };
+    }
+    if (unsplitFileCount > 0) {
+      return {
+        message: "存在未拆页 PDF，建议先生成图纸页。",
+        actions: [
+          {
+            label: "生成 PDF 图纸页",
+            onClick: () => latestBatchId && handleSplitBatch(latestBatchId),
+            disabled: !latestBatchId,
+            reason: "未找到可处理批次"
+          }
+        ]
+      };
+    }
+    if (hasDxfWorkPending) {
+      return {
+        message: "存在未解析 DXF 或待转换 DWG，建议执行 CAD pipeline。",
+        actions: [
+          {
+            label: "执行 CAD pipeline",
+            onClick: () => latestBatchId && handleRunCadPipeline(latestBatchId),
+            disabled: !canRunCadPipeline,
+            reason: "当前项目暂无 CAD 批次"
+          }
+        ]
+      };
+    }
+    if (hasCandidatePending) {
+      return {
+        message: "存在未生成识别候选的图纸。",
+        actions: [
+          {
+            label: "生成候选值",
+            onClick: () => latestBatchId && handleGenerateBatchCandidates(latestBatchId),
+            disabled: !latestBatchId || summarySheetCount === 0,
+            reason: !latestBatchId ? "未找到可处理批次" : "当前项目暂无图纸"
+          }
+        ]
+      };
+    }
+    if (summaryMissingDrawingNoCount > 0 || summaryMissingDrawingNameCount > 0) {
+      return {
+        message: "存在关键字段缺失，请优先校核。",
+        actions: [
+          {
+            label: "筛选缺字段图纸",
+            onClick: () =>
+              openReviewFilter({
+                missing_field: summaryMissingDrawingNoCount > 0 ? "drawing_no" : "drawing_name"
+              }),
+            disabled: summarySheetCount === 0,
+            reason: "当前项目暂无图纸"
+          }
+        ]
+      };
+    }
+    if (summaryUnreviewedCount > 0) {
+      return {
+        message: "存在未校核图纸，建议进入校核工作台。",
+        actions: [
+          {
+            label: "进入校核",
+            onClick: () => openReviewFilter({ review_status: "unreviewed" }),
+            disabled: summarySheetCount === 0,
+            reason: "当前项目暂无图纸"
+          }
+        ]
+      };
+    }
+    return {
+      message: "当前项目已基本完成校核，可以导出 Excel 或创建备份。",
+      actions: [
+        {
+          label: "导出 Excel",
+          onClick: () => handleExportExcel(true),
+          disabled: !canExportProject,
+          reason: "当前项目暂无可导出图纸"
+        },
+        {
+          label: "备份项目",
+          onClick: handleCreateBackup,
+          disabled: backupBusy,
+          reason: backupBusy ? "正在备份" : undefined
+        }
+      ]
+    };
+  })();
+  const projectQuickActions: QuickAction[] = [
+    { label: "导入图纸", onClick: () => setImportOpen(true) },
+    {
+      label: "执行 CAD pipeline",
+      onClick: () => latestBatchId && handleRunCadPipeline(latestBatchId),
+      disabled: !canRunCadPipeline || (latestBatchId ? busyAction === `cad-pipeline-${latestBatchId}` : false),
+      reason: !canRunCadPipeline ? "需要先导入 DXF 或 DWG" : busyAction === `cad-pipeline-${latestBatchId}` ? "正在处理" : undefined
+    },
+    {
+      label: "生成 CAD 预览",
+      onClick: () => selectedProject && handleGenerateProjectCadPreview(selectedProject.id),
+      disabled: !selectedProject || !canGenerateCadPreview || busyAction === `cad-preview-project-${selectedProject?.id}`,
+      reason: !canGenerateCadPreview ? "暂无需要预览的 CAD 图纸" : busyAction === `cad-preview-project-${selectedProject?.id}` ? "正在生成" : undefined
+    },
+    {
+      label: "进入校核工作台",
+      onClick: () => openReviewFilter({ review_status: "unreviewed" }),
+      disabled: summarySheetCount === 0,
+      reason: summarySheetCount === 0 ? "当前项目暂无图纸" : undefined
+    },
+    {
+      label: "导出 Excel",
+      onClick: () => handleExportExcel(true),
+      disabled: !canExportProject,
+      reason: !canExportProject ? "当前项目暂无可导出图纸" : undefined
+    },
+    {
+      label: "备份当前项目",
+      onClick: handleCreateBackup,
+      disabled: !canBackupProject || backupBusy,
+      reason: backupBusy ? "正在备份" : !canBackupProject ? "未打开项目" : undefined
+    },
+    {
+      label: "运行项目健康检查",
+      onClick: handleRunProjectHealthCheck,
+      disabled: !selectedProject || maintenanceBusy === "project-health",
+      reason: maintenanceBusy === "project-health" ? "正在检查" : !selectedProject ? "未打开项目" : undefined
+    }
+  ];
   const projectNotice = (() => {
     if (projectFiles.length === 0 && sheetPage.total === 0) {
       return "当前项目还没有导入图纸。";
@@ -1745,14 +2000,14 @@ function App() {
               ) : null}
 
               <div className="summary-grid">
-                <Metric label="图纸总数" value={selectedProject.stats.sheet_count} />
+                <Metric label="图纸总数" value={summarySheetCount} />
                 <Metric label="已识别" value={selectedProject.stats.recognized_count} />
-                <Metric label="待校核" value={selectedProject.stats.need_review_count} />
+                <Metric label="待校核" value={summaryUnreviewedCount} />
                 <Metric label="已确认" value={selectedProject.stats.confirmed_count} />
                 <Metric label="识别失败" value={selectedProject.stats.failed_count || failedSheetCount} />
                 <Metric label="问题数量" value={selectedProject.stats.issue_count} />
-                <Metric label="Error" value={selectedProject.stats.error_issue_count} />
-                <Metric label="Warning" value={selectedProject.stats.warning_issue_count} />
+                <Metric label="Error" value={summaryOpenErrorCount} />
+                <Metric label="Warning" value={summaryOpenWarningCount} />
                 <Metric label="已上传文件" value={projectFiles.length} />
                 <Metric label="PDF 文件" value={pdfFileCount} />
                 <Metric label="DXF 文件" value={dxfFileCount} />
@@ -1768,9 +2023,80 @@ function App() {
                 <Metric label="A/B/C/D" value={selectedProject.stats.trust_level_a_count + selectedProject.stats.trust_level_b_count + selectedProject.stats.trust_level_c_count + selectedProject.stats.trust_level_d_count} />
               </div>
 
-              <p className="empty-guide">
-                PDF 图纸台账识别流程内测版。当前 OCR 为内测占位能力，扫描 PDF 识别质量有限。
-              </p>
+              <section className="workbench-panel">
+                <div className="section-title">
+                  <h3>当前项目待办</h3>
+                  <span>{workbenchSummary ? "已刷新" : "加载中"}</span>
+                </div>
+                <div className="summary-grid compact action-metrics">
+                  <button type="button" onClick={() => applyQuickFilter({})}>
+                    <span>图纸总数</span>
+                    <strong>{summarySheetCount}</strong>
+                  </button>
+                  <button type="button" onClick={() => openReviewFilter({ review_status: "unreviewed" })}>
+                    <span>未校核</span>
+                    <strong>{summaryUnreviewedCount}</strong>
+                  </button>
+                  <button type="button" onClick={() => openReviewFilter({ low_confidence: true })}>
+                    <span>低可信</span>
+                    <strong>{summaryLowConfidenceCount}</strong>
+                  </button>
+                  <button type="button" onClick={() => openReviewFilter({ missing_field: "drawing_no" })}>
+                    <span>缺图号</span>
+                    <strong>{summaryMissingDrawingNoCount}</strong>
+                  </button>
+                  <button type="button" onClick={() => openReviewFilter({ missing_field: "drawing_name" })}>
+                    <span>缺图名</span>
+                    <strong>{summaryMissingDrawingNameCount}</strong>
+                  </button>
+                  <button type="button" onClick={() => openReviewFilter({ has_error: true })}>
+                    <span>Error 图纸</span>
+                    <strong>{summaryOpenErrorCount}</strong>
+                  </button>
+                  <button type="button" onClick={() => openReviewFilter({ has_warning: true })}>
+                    <span>Warning 图纸</span>
+                    <strong>{summaryOpenWarningCount}</strong>
+                  </button>
+                  <button type="button" onClick={() => applyQuickFilter({ source_format: "dxf" })}>
+                    <span>CAD 预览缺失</span>
+                    <strong>{summaryCadPreviewMissingCount}</strong>
+                  </button>
+                </div>
+                <div className="workbench-timestamps">
+                  <span>最近导出：{formatDate(workbenchSummary?.last_export_at ?? null)}</span>
+                  <span>最近备份：{formatDate(workbenchSummary?.last_backup_at ?? null)}</span>
+                </div>
+              </section>
+
+              <section className="next-step-panel">
+                <div>
+                  <p className="eyebrow">下一步建议</p>
+                  <h3>{nextStep.message}</h3>
+                </div>
+                <div className="quick-action-grid">
+                  {nextStep.actions.map((action) => (
+                    <QuickActionButton action={action} key={action.label} />
+                  ))}
+                </div>
+              </section>
+
+              <section className="quick-workbench">
+                <div className="section-title">
+                  <h3>快捷操作</h3>
+                  <span>常用入口</span>
+                </div>
+                <div className="quick-action-grid">
+                  {projectQuickActions.map((action) => (
+                    <QuickActionButton action={action} key={action.label} />
+                  ))}
+                </div>
+              </section>
+
+              <section className="flow-guide">
+                <div><strong>PDF 流程</strong><span>上传 PDF → 拆页 → 识别 → 校核 → 导出 Excel</span></div>
+                <div><strong>DXF 流程</strong><span>上传 DXF → CAD 解析 → 识别 → CAD 预览 → 校核 → 导出 Excel</span></div>
+                <div><strong>DWG 流程</strong><span>上传 DWG → 转 DXF → CAD 解析 → 校核 → 导出 Excel</span></div>
+              </section>
 
               <section className="backup-panel">
                 <div className="section-title">
@@ -3499,15 +3825,21 @@ function App() {
                   </div>
                 ) : null}
                 {exportResult ? (
-                  <div className="success-message">
+                  <div className="success-message export-success">
                     <strong>Excel 台账已生成</strong>
                     <span>文件名：{exportResult.file_name}</span>
                     <span>图纸总台账：{exportResult.ledger_row_count} 行</span>
                     <span>问题清单：{exportResult.issue_row_count} 行</span>
+                    <span>建议创建项目备份，便于迁移或回退到当前台账状态。</span>
                     {exportResult.warning_count > 0 ? (
                       <span>导出已完成，但存在未校核或低可信图纸，请在 Excel 中重点复核。</span>
                     ) : null}
-                    <button type="button" onClick={() => downloadExport(exportResult.export_id)}>下载</button>
+                    <div className="inline-actions">
+                      <button type="button" onClick={() => downloadExport(exportResult.export_id)}>下载</button>
+                      <button type="button" className="ghost" onClick={handleCreateBackup} disabled={backupBusy}>
+                        {backupBusy ? "正在备份..." : "创建项目备份"}
+                      </button>
+                    </div>
                   </div>
                 ) : null}
                 <div className="sheet-list">
@@ -3536,9 +3868,67 @@ function App() {
               </div>
             </>
           ) : (
-            <div className="project-placeholder">
-              <h2>选择或新建一个项目</h2>
-              <p>项目会作为后续 PDF 图纸导入和台账识别的容器。</p>
+            <div className="home-workbench">
+              <section className="home-panel">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">快捷工作台</p>
+                    <h2>选择或新建一个项目</h2>
+                  </div>
+                  <span>{projects.length} 个项目</span>
+                </div>
+                <p className="empty-state">
+                  打开最近项目后，可直接查看当前项目待办、进入校核、导出 Excel、创建备份或运行健康检查。
+                </p>
+                <div className="quick-action-grid">
+                  <QuickActionButton action={{ label: "快速新建项目", onClick: () => document.querySelector<HTMLInputElement>(".project-form input")?.focus() }} />
+                  <QuickActionButton
+                    action={{
+                      label: "打开最近项目",
+                      onClick: () => projects[0] && handleOpenProject(projects[0].id),
+                      disabled: projects.length === 0,
+                      reason: "暂无最近项目"
+                    }}
+                  />
+                  <QuickActionButton
+                    action={{
+                      label: "系统健康检查",
+                      onClick: handleRunSystemHealthCheck,
+                      disabled: maintenanceBusy === "system-health",
+                      reason: maintenanceBusy === "system-health" ? "正在检查" : undefined
+                    }}
+                  />
+                </div>
+              </section>
+
+              <section className="home-panel">
+                <div className="section-title">
+                  <h3>最近项目</h3>
+                  <span>{projects.slice(0, 5).length} 条</span>
+                </div>
+                {projects.length === 0 ? (
+                  <p className="empty-state">暂无项目，请先在左侧新建项目。</p>
+                ) : (
+                  <div className="file-list">
+                    {projects.slice(0, 5).map((project) => (
+                      <div className="file-row recent-project-row" key={project.id}>
+                        <span>{project.name}</span>
+                        <span>{formatDate(project.last_opened_at ?? project.updated_at)}</span>
+                        <span>{project.stats.sheet_count} 张</span>
+                        <span>{project.stats.need_review_count} 未校核</span>
+                        <span>{project.stats.issue_count} 问题</span>
+                        <button type="button" onClick={() => handleOpenProject(project.id)}>打开</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="flow-guide">
+                <div><strong>PDF 流程</strong><span>上传 PDF → 拆页 → 识别 → 校核 → 导出 Excel</span></div>
+                <div><strong>DXF 流程</strong><span>上传 DXF → CAD 解析 → 识别 → CAD 预览 → 校核 → 导出 Excel</span></div>
+                <div><strong>DWG 流程</strong><span>上传 DWG → 转 DXF → CAD 解析 → 校核 → 导出 Excel</span></div>
+              </section>
             </div>
           )}
         </section>

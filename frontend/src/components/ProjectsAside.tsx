@@ -35,7 +35,7 @@ export function ProjectsAside({
   return (
     <aside className="project-list">
       <div className="section-title">
-        <h2>项目列表</h2>
+        <h2>最近项目</h2>
         <span>{projects.length} 个项目</span>
       </div>
 
@@ -97,8 +97,8 @@ export function ProjectsAside({
                 </div>
               </dl>
               <div className="meta">
-                <span>创建：{formatDate(project.created_at)}</span>
-                <span>最近打开：{formatDate(project.last_opened_at)}</span>
+                <span>最近打开：{formatDate(project.last_opened_at ?? project.updated_at)}</span>
+                <span>最近更新：{formatDate(project.updated_at)}</span>
               </div>
               <div className="card-actions">
                 <button type="button" onClick={() => onOpenProject(project.id)}>

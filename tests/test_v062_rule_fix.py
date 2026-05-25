@@ -19,6 +19,7 @@ from recognizer.normalizer.date import normalize_issue_date
 from recognizer.normalizer.discipline import infer_discipline
 from recognizer.normalizer.drawing_no import is_supported_drawing_no, normalize_drawing_no
 from recognizer.rules.issue_rules import issue_template
+from test_recognition_raw import _wait_for_ocr_job
 from test_full_flow_stability_v055 import (
     create_project,
     export_excel,
@@ -30,7 +31,7 @@ from test_full_flow_stability_v055 import (
 from dwg_test_helpers import DWG_BYTES, clear_converter_tables, create_converter_setting, write_mock_converter
 
 
-VERSION = "v1.0.2-fast-stable"
+VERSION = "v1.1.1-fast-fix"
 
 
 def field_candidates(candidates: list[dict], field_name: str) -> list[dict]:
@@ -150,6 +151,7 @@ def test_v062_filename_only_ocr_empty_and_low_confidence_issues_are_generated():
         assert client.post(f"/api/imports/{batch_id}/extract-text").status_code == 200
         assert client.post(f"/api/imports/{batch_id}/title-crops").status_code == 200
         assert client.post(f"/api/imports/{batch_id}/ocr-titles").status_code == 200
+        _wait_for_ocr_job(client, batch_id)
         ocr_codes = issue_codes(sheet_id)
         assert client.post(f"/api/sheets/{sheet_id}/generate-candidates").status_code == 200
         assert client.post(f"/api/sheets/{sheet_id}/fuse-fields").status_code == 200
@@ -157,8 +159,10 @@ def test_v062_filename_only_ocr_empty_and_low_confidence_issues_are_generated():
     codes = issue_codes(sheet_id)
     assert "ONLY_FROM_FILENAME" in codes
     assert "OCR_TEXT_EMPTY" in ocr_codes
+    assert "PDF_TEXT_EMPTY" in ocr_codes
     assert "LOW_CONFIDENCE_NEED_REVIEW" in codes
     assert issue_template("OCR_TEXT_EMPTY")[0] == "info"
+    assert issue_template("PDF_TEXT_EMPTY")[0] == "info"
     assert issue_template("ONLY_FROM_FILENAME")[0] == "warning"
 
 

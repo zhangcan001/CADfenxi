@@ -28,6 +28,20 @@ export type Project = {
   stats: ProjectStats;
 };
 
+export type ProjectWorkbenchSummary = {
+  project_id: number;
+  drawing_sheet_count: number;
+  unreviewed_count: number;
+  low_confidence_count: number;
+  missing_drawing_no_count: number;
+  missing_drawing_name_count: number;
+  open_error_count: number;
+  open_warning_count: number;
+  cad_preview_missing_count: number;
+  last_export_at: string | null;
+  last_backup_at: string | null;
+};
+
 export type ProjectPayload = {
   name: string;
   description?: string;
@@ -43,6 +57,10 @@ export function listProjects(): Promise<Project[]> {
 
 export function getProject(projectId: number): Promise<Project> {
   return apiGet<Project>(`/api/projects/${projectId}`);
+}
+
+export function getProjectWorkbenchSummary(projectId: number): Promise<ProjectWorkbenchSummary> {
+  return apiGet<ProjectWorkbenchSummary>(`/api/projects/${projectId}/workbench-summary`);
 }
 
 export function updateProject(

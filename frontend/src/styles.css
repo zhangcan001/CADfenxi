@@ -257,6 +257,11 @@ textarea {
 .import-panel,
 .import-result,
 .recent-files,
+.home-panel,
+.quick-workbench,
+.workbench-panel,
+.next-step-panel,
+.flow-guide,
 .backup-panel,
 .maintenance-panel,
 .converter-panel,
@@ -270,6 +275,103 @@ textarea {
   border: 1px solid #dce3ec;
   border-radius: 8px;
   background: #fbfcfe;
+}
+
+.home-workbench {
+  display: grid;
+  gap: 18px;
+}
+
+.quick-action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.quick-action {
+  display: grid;
+  gap: 5px;
+}
+
+.quick-action span {
+  max-width: 180px;
+  color: #748197;
+  font-size: 12px;
+}
+
+.next-step-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  background: #f7fbf8;
+  border-color: #cfe3d4;
+}
+
+.next-step-panel h3 {
+  margin-bottom: 0;
+}
+
+.flow-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.flow-guide div {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #dfe7f2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.flow-guide span,
+.workbench-timestamps {
+  color: #617086;
+  font-size: 13px;
+}
+
+.workbench-timestamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.action-metrics button {
+  min-height: 68px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #263447;
+  text-align: left;
+}
+
+.action-metrics button span {
+  color: #617086;
+  font-size: 13px;
+}
+
+.action-metrics button strong {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.file-row.recent-project-row {
+  grid-template-columns: minmax(160px, 1fr) 150px 80px 90px 90px 80px;
+}
+
+.success-message.export-success {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .converter-form {
@@ -981,6 +1083,9 @@ select {
 
   .health-strip,
   .summary-grid,
+  .flow-guide,
+  .next-step-panel,
+  .file-row.recent-project-row,
   .health-group-grid,
   .ledger-filters,
   .review-layout,

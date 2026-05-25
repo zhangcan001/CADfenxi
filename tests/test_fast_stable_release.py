@@ -21,9 +21,10 @@ from dwg_test_helpers import (
 from scripts.build_portable_package import DEFAULT_VERSION, build_portable_package, package_name
 from test_full_flow_stability_v055 import make_pdf_bytes, title_block_dxf
 from test_project_backup_restore import backup_project, create_project, upload_files
+from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.0.2-fast-stable"
+VERSION = "v1.1.1-fast-fix"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -114,6 +115,7 @@ def test_v102_pdf_minimal_flow_still_exports_excel():
         title_crop = client.post(f"/api/imports/{batch_id}/title-crops")
         extract_text = client.post(f"/api/imports/{batch_id}/extract-text")
         ocr = client.post(f"/api/imports/{batch_id}/ocr-titles")
+        _wait_for_ocr_job(client, batch_id)
         candidates = client.post(f"/api/sheets/{sheet_id}/generate-candidates")
         fuse = client.post(f"/api/sheets/{sheet_id}/fuse-fields")
         update = client.patch(

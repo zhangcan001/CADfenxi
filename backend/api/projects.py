@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from backend.core.database import get_db
-from backend.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
-from backend.services import project_service
+from backend.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate, ProjectWorkbenchSummary
+from backend.services import project_service, project_workbench_service
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -21,6 +21,14 @@ def list_projects(db: Session = Depends(get_db)) -> list[ProjectRead]:
 @router.get("/{project_id}", response_model=ProjectRead)
 def get_project(project_id: int, db: Session = Depends(get_db)) -> ProjectRead:
     return project_service.get_project_detail(db, project_id)
+
+
+@router.get("/{project_id}/workbench-summary", response_model=ProjectWorkbenchSummary)
+def get_project_workbench_summary(
+    project_id: int,
+    db: Session = Depends(get_db),
+) -> ProjectWorkbenchSummary:
+    return project_workbench_service.get_workbench_summary(db, project_id)
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)

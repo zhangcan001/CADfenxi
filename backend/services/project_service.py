@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.core.config import settings
@@ -54,7 +54,13 @@ def create_project(db: Session, payload: ProjectCreate) -> ProjectRead:
 
 
 def list_projects(db: Session) -> list[ProjectRead]:
-    projects = db.scalars(select(Project).order_by(Project.updated_at.desc())).all()
+    projects = db.scalars(
+        select(Project).order_by(
+            func.coalesce(Project.last_opened_at, Project.updated_at).desc(),
+            Project.updated_at.desc(),
+            Project.id.desc(),
+        )
+    ).all()
     return [project_to_read(project, project_stats(db, project.id)) for project in projects]
 
 
