@@ -1,6 +1,8 @@
+import io
 import time
 from pathlib import Path
 
+import ezdxf
 from fastapi.testclient import TestClient
 
 from backend.core.database import SessionLocal, init_database
@@ -124,3 +126,123 @@ def create_converter_setting(client: TestClient, converter_path: Path) -> dict:
     )
     assert response.status_code == 200
     return response.json()
+
+
+def equipment_schedule_dxf(
+    rows: list[list[str]] | None = None,
+    *,
+    header: list[str] | None = None,
+    row_height: float = 8.0,
+    col_widths: list[float] | None = None,
+    origin: tuple[float, float] = (0.0, 1000.0),
+    text_height: float = 2.5,
+) -> bytes:
+    """合成一个 N×M 文字伪表格 DXF。
+
+    默认 header = ["设备名", "型号", "数量", "备注"]，rows 行高 8 单位。
+    每个 cell 都用 TEXT 实体落在 (x, y)，跨行 y 递减。
+    """
+    if header is None:
+        header = ["设备名", "型号", "数量", "备注"]
+    if rows is None:
+        rows = [
+            ["送风机", "FJ-1", "2", "备用 1 台"],
+            ["排风机", "FJ-2", "3", ""],
+            ["照明配电箱", "AL-1", "5", "嵌入式"],
+            ["动力配电箱", "AP-1", "4", "明装"],
+        ]
+    cols = len(header)
+    if col_widths is None:
+        col_widths = [60.0] * cols
+    elif len(col_widths) < cols:
+        col_widths = list(col_widths) + [60.0] * (cols - len(col_widths))
+
+    x0, y_top = origin
+    xs: list[float] = []
+    cursor = x0
+    for w in col_widths:
+        xs.append(cursor)
+        cursor += w
+
+    doc = ezdxf.new("R2010")
+    msp = doc.modelspace()
+    grid = [header, *rows]
+    for r_idx, row in enumerate(grid):
+        y = y_top - r_idx * row_height
+        for c_idx, cell in enumerate(row):
+            text_value = str(cell)
+            if not text_value:
+                continue
+            msp.add_text(
+                text_value,
+                dxfattribs={
+                    "layer": "TABLE",
+                    "insert": (xs[c_idx], y, 0),
+                    "height": text_height,
+                },
+            )
+    stream = io.StringIO()
+    doc.write(stream)
+    return stream.getvalue().encode("utf-8")
+
+
+def acad_table_dxf(
+    cells: list[list[str]] | None = None,
+    *,
+    origin: tuple[float, float] = (0.0, 0.0),
+) -> bytes:
+    """合成一个含真正 ACAD_TABLE 实体的 DXF。
+
+    ezdxf 1.x 暴露 modelspace().add_table()。若当前环境 add_table 不可用，
+    退化为 equipment_schedule_dxf 文字表（让伪表格路径接管）。
+    """
+    if cells is None:
+        cells = [
+            ["材料名", "规格", "数量", "单位"],
+            ["镀锌钢管", "DN25", "100", "米"],
+            ["镀锌钢管", "DN32", "80", "米"],
+            ["闸阀", "DN25", "10", "个"],
+        ]
+    doc = ezdxf.new("R2018")
+    msp = doc.modelspace()
+    try:
+        add_table = getattr(msp, "add_table", None)
+        if add_table is None:
+            raise AttributeError("modelspace has no add_table")
+        n_rows = len(cells)
+        n_cols = len(cells[0]) if cells else 0
+        table = add_table(
+            insert=origin,
+            nrows=n_rows,
+            ncols=n_cols,
+            cell_width=40.0,
+            cell_height=8.0,
+        )
+        for r, row in enumerate(cells):
+            for c, value in enumerate(row):
+                try:
+                    table.set_text(r, c, str(value))
+                except Exception:  # noqa: BLE001
+                    pass
+    except (AttributeError, TypeError):
+        return equipment_schedule_dxf(cells[1:], header=cells[0])
+    stream = io.StringIO()
+    doc.write(stream)
+    return stream.getvalue().encode("utf-8")
+
+
+def wait_for_extract_tables_job(
+    client: TestClient, batch_id: int, timeout_s: float = 60.0
+) -> dict:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        response = client.get(f"/api/imports/{batch_id}/extract-tables/job")
+        assert response.status_code == 200, response.text
+        job = response.json()
+        if job is None:
+            time.sleep(0.05)
+            continue
+        if job["status"] != "running":
+            return job
+        time.sleep(0.05)
+    raise AssertionError(f"extract-tables job did not finish within {timeout_s}s")

@@ -24,7 +24,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.1.3-fast-stable"
+VERSION = "v1.1.4-table-extract"
 ROOT = Path(__file__).resolve().parents[1]
 
 

@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from datetime import datetime
+import json
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -11,6 +12,7 @@ from backend.core.config import settings
 from backend.models.drawing_file import DrawingFile
 from backend.models.drawing_issue import DrawingIssue
 from backend.models.drawing_sheet import DrawingSheet
+from backend.models.drawing_table import DrawingTable
 from backend.models.field_value import FieldValue
 from backend.models.project import Project
 from backend.models.recognition_candidate import RecognitionCandidate
@@ -41,6 +43,9 @@ def build_excel(
 
     discipline_ws = workbook.create_sheet("专业汇总")
     write_discipline_summary_sheet(discipline_ws, context)
+
+    table_detail_ws = workbook.create_sheet("图纸表格明细")
+    write_table_detail_sheet(table_detail_ws, db, project.id, context)
 
     review_ws = workbook.create_sheet("校核状态汇总")
     write_review_summary_sheet(review_ws, context)
@@ -215,6 +220,124 @@ def write_discipline_summary_sheet(ws, context: dict) -> None:
         item = summary[discipline]
         ws.append([discipline] + [item[header] for header in headers[1:]])
     style_sheet(ws, number_columns=set(range(2, len(headers) + 1)))
+
+
+def write_table_detail_sheet(ws, db: Session, project_id: int, context: dict) -> None:
+    """每行 = 一张表的一个数据行（unpack 后）。
+
+    列：序号 / 专业 / 图号 / 图名 / 表格类型 / 表格序号 / 抽取方式 / 行号 / 表头(JSON) / 数据(JSON) / 列数
+    监理用「表格类型」筛选 equipment / material / drawing_index / legend。
+    """
+    headers = [
+        "序号",
+        "专业",
+        "图号",
+        "图名",
+        "表格类型",
+        "表格序号",
+        "抽取方式",
+        "行号",
+        "表头(JSON)",
+        "数据(JSON)",
+        "列数",
+    ]
+    ws.append(headers)
+
+    sheet_meta: dict[int, tuple[str, str, str]] = {}
+    for sheet, _drawing_file, _issue_count, _err, _warn in context["sheets"]:
+        sheet_meta[sheet.id] = (
+            sheet.discipline or "未识别",
+            sheet.drawing_no or "",
+            sheet.drawing_name or "",
+        )
+
+    tables = db.scalars(
+        select(DrawingTable)
+        .where(DrawingTable.project_id == project_id)
+        .order_by(
+            DrawingTable.sheet_id.asc(),
+            DrawingTable.table_index.asc(),
+            DrawingTable.id.asc(),
+        )
+    ).all()
+
+    counter = 1
+    for table in tables:
+        discipline, drawing_no, drawing_name = sheet_meta.get(
+            table.sheet_id, ("未识别", "", "")
+        )
+        header_json = table.header_json or "[]"
+        rows = _parse_rows_json(table.rows_json)
+        if not rows:
+            ws.append([
+                counter,
+                discipline,
+                drawing_no,
+                drawing_name,
+                table_kind_label(table.table_kind),
+                table.table_index,
+                extraction_method_label(table.extraction_method),
+                0,
+                header_json,
+                "",
+                table.col_count,
+            ])
+            counter += 1
+            continue
+        for row_idx, row in enumerate(rows, start=1):
+            ws.append([
+                counter,
+                discipline,
+                drawing_no,
+                drawing_name,
+                table_kind_label(table.table_kind),
+                table.table_index,
+                extraction_method_label(table.extraction_method),
+                row_idx,
+                header_json,
+                _row_to_text(row),
+                table.col_count,
+            ])
+            counter += 1
+
+    style_sheet(ws, number_columns={1, 6, 8, 11})
+
+
+def _parse_rows_json(value: str | None) -> list[list[str]]:
+    if not value:
+        return []
+    try:
+        data = json.loads(value)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    out: list[list[str]] = []
+    for row in data:
+        if isinstance(row, list):
+            out.append([str(cell) for cell in row])
+    return out
+
+
+def _row_to_text(row: list[str]) -> str:
+    return " | ".join(cell for cell in row)
+
+
+def table_kind_label(kind: str) -> str:
+    return {
+        "equipment": "设备表",
+        "material": "材料表",
+        "drawing_index": "图纸目录",
+        "legend": "图例表",
+        "other": "其他",
+    }.get(kind, kind)
+
+
+def extraction_method_label(method: str) -> str:
+    return {
+        "acad_table": "ACAD 表格实体",
+        "text_cluster": "文字坐标聚类",
+    }.get(method, method)
 
 
 def write_review_summary_sheet(ws, context: dict) -> None:

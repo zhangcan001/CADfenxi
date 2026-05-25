@@ -169,6 +169,13 @@ def parse_prepared_dxf(
             started_at=started_at,
             output_path=relative_output_path,
         )
+        try:
+            from backend.services import cad_table_service
+            cad_table_service.extract_tables_from_sheet(db, sheet.id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "extract_tables auto-trigger failed sheet_id=%s: %s", sheet.id, exc
+            )
         return CadParseResult(
             file_id=drawing_file.id,
             sheet_id=sheet.id,

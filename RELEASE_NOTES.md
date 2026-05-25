@@ -1,5 +1,34 @@
 # 发布说明
 
+# v1.1.4-table-extract 发布说明
+
+## 一、版本定位
+
+v1.1.4-table-extract 在 v1.1.3 稳定基础上新增 DXF 表格抽取能力，
+覆盖 ACAD_TABLE 实体 + 文字坐标聚类两条路径，落 `drawing_tables`，
+通过 5 个新 API 暴露，并在 Excel 导出新增「图纸表格明细」sheet。
+
+## 二、本版重点
+
+- 新增 `drawing_tables` 表 + Alembic 迁移 `0006_drawing_tables`
+- 新增 `recognizer/cad_engine/table_extractor.py` 与 `table_classifier.py`
+  两个纯算法模块（无 DB 依赖，单测友好）
+- 新增 `backend/services/cad_table_service.py`：单 sheet 同步 + batch
+  异步（沿用 `background_jobs`）
+- 新增 5 个 REST 端点（sheet / batch / job / project 查询）
+- `parse_prepared_dxf` 解析成功后自动触发 `extract_tables_from_sheet`，
+  失败只 warning，不阻塞老链路
+- Excel 导出新增「图纸表格明细」sheet，监理用筛选器即可拿到
+  全项目设备 / 材料清单
+- 前端 `src/api/tables.ts` 提供 types + fetch 桩，UI 留待下一版
+
+## 三、仍有限制
+
+- 不做跨 sheet 表拼接
+- 合并单元格内容会落到最近列，可能错位
+- 嵌套表 / 复杂表头默认把第一行当 header
+- 超 200 行 / 30 列会被截断并加 `TABLE_*_TRUNCATED_TO_*` warning
+
 # v1.1.3-fast-stable 发布说明
 
 ## 一、版本定位

@@ -3,7 +3,7 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0.."
 
-echo 工程图纸智能台账识别系统 v1.1.3-fast-stable 环境检查
+echo 工程图纸智能台账识别系统 v1.1.4-table-extract 环境检查
 echo.
 
 where python >nul 2>nul

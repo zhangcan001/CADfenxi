@@ -16,7 +16,7 @@ from backend.models.project import Project
 from scripts.build_portable_package import DEFAULT_VERSION
 
 
-VERSION = "v1.1.3-fast-stable"
+VERSION = "v1.1.4-table-extract"
 ROOT = Path(__file__).resolve().parents[1]
 
 

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-DEFAULT_VERSION = "v1.1.3-fast-stable"
+DEFAULT_VERSION = "v1.1.4-table-extract"
 PACKAGE_PREFIX = "工程图纸智能台账识别系统"
 
 
@@ -135,6 +135,7 @@ def write_package_info(package_dir: Path, version: str, tests_status: str) -> Pa
         "v1.1.1-fast-fix",
         "v1.1.2-fast-polish",
         "v1.1.3-fast-stable",
+        "v1.1.4-table-extract",
     }:
         package_type = "Windows 本地便携正式稳定版"
         important_limit_line = "重要限制：不直接解析 DWG，不做 CAD 编辑，不做算量 / BIM / AI 图纸问答。"
