@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "工程图纸智能台账识别系统"
-    app_version: str = "v1.1.1-fast-fix"
+    app_version: str = "v1.1.3-fast-stable"
 
     root_dir: Path = ROOT_DIR
     frontend_dist_dir: Path = ROOT_DIR / "frontend" / "dist"

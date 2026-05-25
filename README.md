@@ -2,11 +2,15 @@
 
 ## 当前版本
 
-v1.1.1-fast-fix
+v1.1.3-fast-stable
 
 ## 版本定位
 
-快捷工作台真实使用问题快速修复与 portable 包整理版本。
+v1.1 体验优化稳定包整理版本。
+
+v1.1.3-fast-stable 是 v1.1 体验优化稳定包整理版本。本版本不新增功能，重点回归首页快捷工作台、最近项目、项目待办摘要、下一步建议、快捷入口和核心业务流程，并生成 portable 稳定包。
+
+v1.1.2-fast-polish 是界面细节打磨与可用性优化版本。本版本不新增识别能力，重点优化首页、最近项目、项目待办、快捷操作、空状态、错误提示和小屏显示。
 
 v1.1-fast-ux 是真实使用体验优化版本。本版本不新增识别能力，重点优化首页、最近项目、项目待办摘要、快捷操作和下一步建议，让日常使用更快。
 
@@ -143,16 +147,16 @@ DWG 上传
 
 ## 便携包
 
-生成 v1.1.1 快捷修复版便携包：
+生成 v1.1.3 体验优化稳定包：
 
 ```bash
-python scripts/build_portable_package.py --version v1.1.1-fast-fix --clean
+python scripts/build_portable_package.py --version v1.1.3-fast-stable --clean
 ```
 
 输出目录：
 
 ```text
-release/工程图纸智能台账识别系统-v1.1.1-fast-fix/
+release/工程图纸智能台账识别系统-v1.1.3-fast-stable/
 ```
 
 ## 发布材料
@@ -161,9 +165,18 @@ release/工程图纸智能台账识别系统-v1.1.1-fast-fix/
 - `docs/FINAL_ACCEPTANCE_v1.0-local-stable.md`
 - `docs/V1_0_1_REAL_USE_FIX_REPORT.md`
 - `docs/FAST_RELEASE_REPORT_v1.0.2.md`
+- `docs/FAST_RELEASE_REPORT_v1.1.3.md`
 - `RELEASE_NOTES.md`
 
 ## 历史版本摘要
+
+### v1.1.3-fast-stable v1.1 体验优化稳定包
+
+v1.1.3-fast-stable 是 v1.1 体验优化稳定包整理版本。本版本不新增功能，重点回归首页快捷工作台、最近项目、项目待办摘要、下一步建议、快捷入口和核心业务流程，并生成 portable 稳定包。
+
+### v1.1.2-fast-polish 界面细节打磨与可用性优化
+
+v1.1.2-fast-polish 是界面细节打磨与可用性优化版本。本版本不新增识别能力，重点优化首页、最近项目、项目待办、快捷操作、空状态、错误提示和小屏显示。
 
 ### v1.1.1-fast-fix 快捷工作台真实使用修复
 

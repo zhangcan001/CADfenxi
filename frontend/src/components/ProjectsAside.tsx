@@ -66,7 +66,13 @@ export function ProjectsAside({
       {loadingProjects ? (
         <p className="empty-state">项目列表加载中...</p>
       ) : projects.length === 0 ? (
-        <p className="empty-state">暂无项目，请新建项目。</p>
+        <div className="empty-state actionable-empty">
+          <strong>还没有项目</strong>
+          <span>先新建一个项目，再导入 PDF、DXF 或 DWG 文件开始生成图纸台账。</span>
+          <button type="button" onClick={() => document.querySelector<HTMLInputElement>(".project-form input")?.focus()}>
+            填写项目名称
+          </button>
+        </div>
       ) : (
         <div className="project-cards">
           {projects.map((project) => (
@@ -79,8 +85,8 @@ export function ProjectsAside({
               key={project.id}
             >
               <div>
-                <h3>{project.name}</h3>
-                <p>{project.description || "暂无项目说明。"}</p>
+                <h3 title={project.name}>{project.name}</h3>
+                <p title={project.description || undefined}>{project.description || "暂无项目说明。"}</p>
               </div>
               <dl>
                 <div>
@@ -97,7 +103,7 @@ export function ProjectsAside({
                 </div>
               </dl>
               <div className="meta">
-                <span>最近打开：{formatDate(project.last_opened_at ?? project.updated_at)}</span>
+                <span>最近打开：{project.last_opened_at ? formatDate(project.last_opened_at) : "尚未打开"}</span>
                 <span>最近更新：{formatDate(project.updated_at)}</span>
               </div>
               <div className="card-actions">

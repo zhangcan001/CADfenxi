@@ -2,6 +2,8 @@ import logging
 import socket
 from pathlib import Path
 
+import pytest
+
 from scripts.local_launcher import (
     check_startup_requirements,
     is_port_in_use,
@@ -28,7 +30,12 @@ def test_startup_checks_detect_bound_port(tmp_path: Path):
     (tmp_path / "requirements.txt").write_text("", encoding="utf-8")
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
+        try:
+            sock.bind(("127.0.0.1", 0))
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 10055:
+                pytest.skip("Windows socket buffer temporarily exhausted while reserving a probe port")
+            raise
         sock.listen(1)
         port = sock.getsockname()[1]
 

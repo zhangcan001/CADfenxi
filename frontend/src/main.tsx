@@ -255,16 +255,85 @@ type QuickAction = {
   onClick: () => void;
   disabled?: boolean;
   reason?: string;
+  primary?: boolean;
+  busy?: boolean;
+  group?: "primary" | "review" | "output";
 };
 
 function QuickActionButton({ action }: { action: QuickAction }) {
   return (
-    <div className="quick-action">
-      <button type="button" onClick={action.onClick} disabled={action.disabled} title={action.disabled ? action.reason : undefined}>
-        {action.label}
+    <div className={action.primary ? "quick-action primary" : "quick-action"}>
+      <button
+        type="button"
+        onClick={action.onClick}
+        disabled={action.disabled || action.busy}
+        title={action.disabled || action.busy ? action.reason : undefined}
+        aria-busy={action.busy ? "true" : undefined}
+      >
+        {action.busy ? `${action.label}中...` : action.label}
       </button>
-      {action.disabled && action.reason ? <span>{action.reason}</span> : null}
+      {(action.disabled || action.busy) && action.reason ? <span>{action.reason}</span> : null}
     </div>
+  );
+}
+
+function ErrorNotice({ message }: { message: string }) {
+  if (!message) {
+    return null;
+  }
+  const lines = message.split("\n").filter(Boolean);
+  return (
+    <div className="error-notice" role="alert">
+      <strong>{lines[0] ?? "操作失败"}</strong>
+      {lines.slice(1).map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+  actionLabel,
+  onAction
+}: {
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="empty-state actionable-empty">
+      <strong>{title}</strong>
+      <span>{description}</span>
+      {actionLabel && onAction ? (
+        <button type="button" onClick={onAction}>
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+type TodoMetricTone = "normal" | "good" | "attention" | "warning" | "danger";
+
+function TodoMetric({
+  label,
+  value,
+  onClick,
+  tone = "normal"
+}: {
+  label: string;
+  value: number;
+  onClick: () => void;
+  tone?: TodoMetricTone;
+}) {
+  return (
+    <button type="button" className={`todo-metric ${tone}`} onClick={onClick}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </button>
   );
 }
 
@@ -711,7 +780,12 @@ function App() {
       return;
     }
     if (selectedFiles.length === 0) {
-      setImportError("请选择至少一个 PDF / DXF / DWG 文件");
+      setImportError([
+        "操作失败",
+        "错误码：NO_DRAWING_FILE_SELECTED",
+        "说明：请选择至少一个 PDF、DXF 或 DWG 文件。",
+        "建议：点击文件选择框后选择图纸文件，再开始导入。"
+      ].join("\n"));
       return;
     }
 
@@ -746,7 +820,7 @@ function App() {
         loadWorkbenchSummary(selectedProject.id);
         refreshProjects();
       })
-      .catch(() => setSplitError("生成图纸页预览失败，请稍后重试"));
+      .catch((error) => setSplitError(formatApiError(error, "生成图纸页预览失败，请稍后重试")));
   };
 
   const handlePrepareDxfSheet = (fileId: number) => {
@@ -1038,12 +1112,22 @@ function App() {
       return;
     }
     if (cadPipelineSteps.length === 0) {
-      setCadPipelineError("请选择至少一个 CAD 批量处理步骤。");
+      setCadPipelineError([
+        "操作失败",
+        "错误码：NO_CAD_PIPELINE_STEP_SELECTED",
+        "说明：请选择至少一个 CAD 批量处理步骤。",
+        "建议：勾选 DWG 转换、DXF 解析、生成候选值或 CAD 预览后再运行。"
+      ].join("\n"));
       return;
     }
     const hasActiveConverter = converterSettings.some((item) => item.is_enabled);
     if (cadPipelineSteps.includes("convert_dwg") && dwgFileCount > 0 && !hasActiveConverter) {
-      setCadPipelineError("尚未配置 DWG 转 DXF 工具，请先在 CAD 转换设置中配置。");
+      setCadPipelineError([
+        "操作失败",
+        "错误码：CONVERTER_NOT_CONFIGURED",
+        "说明：尚未配置 DWG 转 DXF 工具。",
+        "建议：先在 CAD 转换设置中保存并检测转换工具。"
+      ].join("\n"));
       return;
     }
     const payload: CadPipelineRequest = {
@@ -1104,7 +1188,7 @@ function App() {
         updateSheetTitleCrop(result);
         loadProjectSheets(selectedProject.id);
       })
-      .catch(() => setTitleCropError("生成标题栏裁剪图失败，请稍后重试"));
+      .catch((error) => setTitleCropError(formatApiError(error, "生成标题栏裁剪图失败，请稍后重试")));
   };
 
   const handleCropBatchTitles = (batchId: number) => {
@@ -1118,7 +1202,7 @@ function App() {
         loadProjectSheets(selectedProject.id);
         loadWorkbenchSummary(selectedProject.id);
       })
-      .catch(() => setTitleCropError("批量生成标题栏裁剪图失败，请稍后重试"));
+      .catch((error) => setTitleCropError(formatApiError(error, "批量生成标题栏裁剪图失败，请稍后重试")));
   };
 
   const handleExtractSheetText = (sheetId: number) => {
@@ -1127,7 +1211,7 @@ function App() {
         setRecognitionError("");
         setRecognitionResult(singleRecognitionAsBatch(result, latestBatchId ?? 0));
       })
-      .catch(() => setRecognitionError("PDF 文本提取失败，请稍后重试"));
+      .catch((error) => setRecognitionError(formatApiError(error, "PDF 文本提取失败，请稍后重试")));
   };
 
   const handleOcrSheetTitle = (sheetId: number) => {
@@ -1136,7 +1220,7 @@ function App() {
         setRecognitionError("");
         setRecognitionResult(singleRecognitionAsBatch(result, latestBatchId ?? 0));
       })
-      .catch(() => setRecognitionError("标题栏 OCR 失败，请确认已生成标题栏裁剪图"));
+      .catch((error) => setRecognitionError(formatApiError(error, "标题栏 OCR 失败，请确认已生成标题栏裁剪图")));
   };
 
   const handleExtractBatchText = (batchId: number) => {
@@ -1145,7 +1229,7 @@ function App() {
         setRecognitionResult(result);
         setRecognitionError("");
       })
-      .catch(() => setRecognitionError("批量 PDF 文本提取失败，请稍后重试"));
+      .catch((error) => setRecognitionError(formatApiError(error, "批量 PDF 文本提取失败，请稍后重试")));
   };
 
   const stopOcrJobPolling = React.useCallback(() => {
@@ -1177,14 +1261,19 @@ function App() {
               })
               .catch(() => {
                 stopOcrJobPolling();
-                setRecognitionError("批量 OCR 进度查询失败");
+                setRecognitionError([
+                  "操作失败",
+                  "错误码：OCR_JOB_POLL_FAILED",
+                  "说明：批量 OCR 进度查询失败。",
+                  "建议：请确认后端服务仍在运行，稍后刷新项目状态。"
+                ].join("\n"));
               });
           }, 2000);
         } else if (job.status === "failed" && job.message) {
           setRecognitionError(`批量 OCR 失败：${job.message}`);
         }
       })
-      .catch(() => setRecognitionError("批量标题栏 OCR 失败，请确认已生成标题栏裁剪图"));
+      .catch((error) => setRecognitionError(formatApiError(error, "批量标题栏 OCR 失败，请确认已生成标题栏裁剪图")));
   };
 
   const handleLoadRuns = (sheetId: number) => {
@@ -1194,7 +1283,7 @@ function App() {
         setRunsSheetId(sheetId);
         setRecognitionError("");
       })
-      .catch(() => setRecognitionError("识别运行记录加载失败"));
+      .catch((error) => setRecognitionError(formatApiError(error, "识别运行记录加载失败")));
   };
 
   const handleGenerateSheetCandidates = (sheetId: number) => {
@@ -1229,7 +1318,7 @@ function App() {
           loadWorkbenchSummary(selectedProject.id);
         }
       })
-      .catch(() => setCandidateError("批量生成候选值失败"));
+      .catch((error) => setCandidateError(formatApiError(error, "批量生成候选值失败")));
   };
 
   const handleLoadCandidates = (sheetId: number) => {
@@ -1239,7 +1328,7 @@ function App() {
         setCandidatesSheetId(sheetId);
         setCandidateError("");
       })
-      .catch(() => setCandidateError("候选值加载失败"));
+      .catch((error) => setCandidateError(formatApiError(error, "候选值加载失败")));
   };
 
   const handleFuseSheetFields = (sheetId: number) => {
@@ -1279,7 +1368,7 @@ function App() {
         loadWorkbenchSummary(selectedProject.id);
         refreshProjects();
       })
-      .catch(() => setFusionError("批量生成推荐字段失败"));
+      .catch((error) => setFusionError(formatApiError(error, "批量生成推荐字段失败")));
   };
 
   const handleLoadFieldValues = (sheetId: number) => {
@@ -1290,7 +1379,7 @@ function App() {
         setFieldValuesSheetId(sheetId);
         setFusionError("");
       })
-      .catch(() => setFusionError("推荐字段或证据加载失败"));
+      .catch((error) => setFusionError(formatApiError(error, "推荐字段或证据加载失败")));
   };
 
   const handleOpenSheetDetail = (sheetId: number) => {
@@ -1302,7 +1391,7 @@ function App() {
         handleLoadRuns(sheetId);
         handleLoadFieldValues(sheetId);
       })
-      .catch(() => setFusionError("图纸详情加载失败"));
+      .catch((error) => setFusionError(formatApiError(error, "图纸详情加载失败")));
   };
 
   const openReviewWorkbench = (sheet: DrawingSheet) => {
@@ -1371,7 +1460,7 @@ function App() {
         setReviewError("");
         refreshReviewContext(reviewSheet.id);
       })
-      .catch(() => setReviewError("采用候选值失败"));
+      .catch((error) => setReviewError(formatApiError(error, "采用候选值失败")));
   };
 
   const handleApplyCandidateValue = (candidate: RecognitionCandidate) => {
@@ -1415,7 +1504,7 @@ function App() {
         setReviewError("");
         refreshReviewContext(reviewSheet.id);
       })
-      .catch(() => setReviewError("存在阻断问题，暂不能确认"));
+      .catch((error) => setReviewError(formatApiError(error, "存在阻断问题，暂不能确认")));
   };
 
   const handleSaveAndConfirmReviewSheet = () => {
@@ -1448,7 +1537,7 @@ function App() {
         setReviewError("");
         refreshReviewContext(reviewSheet.id);
       })
-      .catch(() => setReviewError("问题状态更新失败"));
+      .catch((error) => setReviewError(formatApiError(error, "问题状态更新失败")));
   };
 
   const handleBatchConfirm = (
@@ -1460,7 +1549,12 @@ function App() {
     }
     const ids = source === "manual" ? selectedSheetIds : sheets.map((sheet) => sheet.id);
     if (ids.length === 0) {
-      setReviewError(source === "manual" ? "请先勾选要批量确认的图纸" : "当前筛选结果为空");
+      setReviewError([
+        "操作失败",
+        "错误码：NO_SHEET_SELECTED",
+        `说明：${source === "manual" ? "请先勾选要批量确认的图纸。" : "当前筛选结果为空。"}`,
+        "建议：选择图纸或调整筛选条件后再批量确认。"
+      ].join("\n"));
       return;
     }
     batchConfirmProject(selectedProject.id, {
@@ -1474,7 +1568,7 @@ function App() {
         loadProjectSheets(selectedProject.id);
         loadWorkbenchSummary(selectedProject.id);
       })
-      .catch(() => setReviewError("批量确认失败"));
+      .catch((error) => setReviewError(formatApiError(error, "批量确认失败")));
   };
 
   const toggleSelectedSheet = (sheetId: number) => {
@@ -1502,7 +1596,7 @@ function App() {
         setExportCheck(result);
         setExportError("");
       })
-      .catch(() => setExportError("导出前检查失败"));
+      .catch((error) => setExportError(formatApiError(error, "导出前检查失败")));
   };
 
   const handleExportExcel = (confirmIncomplete: boolean) => {
@@ -1520,7 +1614,7 @@ function App() {
         loadWorkbenchSummary(selectedProject.id);
         listExports(selectedProject.id).then(setExportRecords);
       })
-      .catch(() => setExportError("导出失败：项目无图纸、导出目录不可写或 Excel 文件写入失败"));
+      .catch((error) => setExportError(formatApiError(error, "导出失败：项目无图纸、导出目录不可写或 Excel 文件写入失败")));
   };
 
   const handleCreateBackup = () => {
@@ -1778,74 +1872,82 @@ function App() {
   const nextStep = (() => {
     if (projectFiles.length === 0 && summarySheetCount === 0) {
       return {
-        message: "请先导入 PDF / DXF / DWG 图纸。",
-        actions: [{ label: "导入图纸", onClick: () => setImportOpen(true) }]
+        message: "当前项目还没有图纸。建议先导入 PDF、DXF 或 DWG 文件。",
+        actions: [{ label: "导入图纸", onClick: () => setImportOpen(true), primary: true }]
       };
     }
     if (unsplitFileCount > 0) {
       return {
-        message: "存在未拆页 PDF，建议先生成图纸页。",
+        message: `还有 ${unsplitFileCount} 个 PDF 文件未拆页。建议先生成图纸页。`,
         actions: [
           {
             label: "生成 PDF 图纸页",
             onClick: () => latestBatchId && handleSplitBatch(latestBatchId),
             disabled: !latestBatchId,
-            reason: "未找到可处理批次"
+            reason: "未找到可处理批次",
+            primary: true
           }
         ]
       };
     }
     if (hasDxfWorkPending) {
       return {
-        message: "存在未解析 DXF 或待转换 DWG，建议执行 CAD pipeline。",
+        message: "存在未解析 CAD 图纸。建议执行 CAD pipeline。",
         actions: [
           {
             label: "执行 CAD pipeline",
             onClick: () => latestBatchId && handleRunCadPipeline(latestBatchId),
             disabled: !canRunCadPipeline,
-            reason: "当前项目暂无 CAD 批次"
+            reason: "当前项目暂无 CAD 批次",
+            primary: true,
+            busy: latestBatchId ? busyAction === `cad-pipeline-${latestBatchId}` : false
           }
         ]
       };
     }
     if (hasCandidatePending) {
       return {
-        message: "存在未生成识别候选的图纸。",
+        message: "部分图纸还没有候选值。建议先生成候选值。",
         actions: [
           {
             label: "生成候选值",
             onClick: () => latestBatchId && handleGenerateBatchCandidates(latestBatchId),
             disabled: !latestBatchId || summarySheetCount === 0,
-            reason: !latestBatchId ? "未找到可处理批次" : "当前项目暂无图纸"
+            reason: !latestBatchId ? "未找到可处理批次" : "当前项目暂无图纸",
+            primary: true
           }
         ]
       };
     }
     if (summaryMissingDrawingNoCount > 0 || summaryMissingDrawingNameCount > 0) {
+      const missingCount = summaryMissingDrawingNoCount > 0 ? summaryMissingDrawingNoCount : summaryMissingDrawingNameCount;
+      const missingLabel = summaryMissingDrawingNoCount > 0 ? "图号" : "图名";
       return {
-        message: "存在关键字段缺失，请优先校核。",
+        message: `有 ${missingCount} 张图纸缺少${missingLabel}。建议优先校核缺${missingLabel}图纸。`,
         actions: [
           {
-            label: "筛选缺字段图纸",
+            label: `校核缺${missingLabel}`,
             onClick: () =>
               openReviewFilter({
                 missing_field: summaryMissingDrawingNoCount > 0 ? "drawing_no" : "drawing_name"
               }),
             disabled: summarySheetCount === 0,
-            reason: "当前项目暂无图纸"
+            reason: "当前项目暂无图纸",
+            primary: true
           }
         ]
       };
     }
     if (summaryUnreviewedCount > 0) {
       return {
-        message: "存在未校核图纸，建议进入校核工作台。",
+        message: `还有 ${summaryUnreviewedCount} 张图纸未校核。建议先进入校核工作台完成确认。`,
         actions: [
           {
             label: "进入校核",
             onClick: () => openReviewFilter({ review_status: "unreviewed" }),
             disabled: summarySheetCount === 0,
-            reason: "当前项目暂无图纸"
+            reason: "当前项目暂无图纸",
+            primary: true
           }
         ]
       };
@@ -1857,7 +1959,8 @@ function App() {
           label: "导出 Excel",
           onClick: () => handleExportExcel(true),
           disabled: !canExportProject,
-          reason: "当前项目暂无可导出图纸"
+          reason: "当前项目暂无可导出图纸",
+          primary: true
         },
         {
           label: "备份项目",
@@ -1869,44 +1972,60 @@ function App() {
     };
   })();
   const projectQuickActions: QuickAction[] = [
-    { label: "导入图纸", onClick: () => setImportOpen(true) },
+    { label: "导入图纸", onClick: () => setImportOpen(true), group: "primary", primary: projectFiles.length === 0 && summarySheetCount === 0 },
     {
       label: "执行 CAD pipeline",
       onClick: () => latestBatchId && handleRunCadPipeline(latestBatchId),
       disabled: !canRunCadPipeline || (latestBatchId ? busyAction === `cad-pipeline-${latestBatchId}` : false),
-      reason: !canRunCadPipeline ? "需要先导入 DXF 或 DWG" : busyAction === `cad-pipeline-${latestBatchId}` ? "正在处理" : undefined
+      reason: !canRunCadPipeline ? "需要先导入 DXF 或 DWG" : busyAction === `cad-pipeline-${latestBatchId}` ? "正在处理" : undefined,
+      busy: latestBatchId ? busyAction === `cad-pipeline-${latestBatchId}` : false,
+      group: "primary",
+      primary: hasDxfWorkPending
     },
     {
       label: "生成 CAD 预览",
       onClick: () => selectedProject && handleGenerateProjectCadPreview(selectedProject.id),
       disabled: !selectedProject || !canGenerateCadPreview || busyAction === `cad-preview-project-${selectedProject?.id}`,
-      reason: !canGenerateCadPreview ? "暂无需要预览的 CAD 图纸" : busyAction === `cad-preview-project-${selectedProject?.id}` ? "正在生成" : undefined
+      reason: !canGenerateCadPreview ? "暂无需要预览的 CAD 图纸" : busyAction === `cad-preview-project-${selectedProject?.id}` ? "正在生成" : undefined,
+      busy: busyAction === `cad-preview-project-${selectedProject?.id}`,
+      group: "primary"
     },
     {
       label: "进入校核工作台",
       onClick: () => openReviewFilter({ review_status: "unreviewed" }),
       disabled: summarySheetCount === 0,
-      reason: summarySheetCount === 0 ? "当前项目暂无图纸" : undefined
+      reason: summarySheetCount === 0 ? "当前项目暂无图纸" : undefined,
+      group: "review",
+      primary: summaryUnreviewedCount > 0
     },
     {
       label: "导出 Excel",
       onClick: () => handleExportExcel(true),
       disabled: !canExportProject,
-      reason: !canExportProject ? "当前项目暂无可导出图纸" : undefined
+      reason: !canExportProject ? "当前项目暂无可导出图纸" : undefined,
+      group: "output",
+      primary: summarySheetCount > 0 && summaryUnreviewedCount === 0
     },
     {
       label: "备份当前项目",
       onClick: handleCreateBackup,
       disabled: !canBackupProject || backupBusy,
-      reason: backupBusy ? "正在备份" : !canBackupProject ? "未打开项目" : undefined
+      reason: backupBusy ? "正在备份" : !canBackupProject ? "未打开项目" : undefined,
+      busy: backupBusy,
+      group: "output"
     },
     {
       label: "运行项目健康检查",
       onClick: handleRunProjectHealthCheck,
       disabled: !selectedProject || maintenanceBusy === "project-health",
-      reason: maintenanceBusy === "project-health" ? "正在检查" : !selectedProject ? "未打开项目" : undefined
+      reason: maintenanceBusy === "project-health" ? "正在检查" : !selectedProject ? "未打开项目" : undefined,
+      busy: maintenanceBusy === "project-health",
+      group: "output"
     }
   ];
+  const primaryQuickActions = projectQuickActions.filter((action) => action.group === "primary");
+  const reviewQuickActions = projectQuickActions.filter((action) => action.group === "review");
+  const outputQuickActions = projectQuickActions.filter((action) => action.group === "output");
   const projectNotice = (() => {
     if (projectFiles.length === 0 && sheetPage.total === 0) {
       return "当前项目还没有导入图纸。";
@@ -1915,13 +2034,13 @@ function App() {
       return "已有 PDF 文件，尚未生成图纸页预览。";
     }
     if (sheets.some((sheet) => sheet.title_crop_status !== "success")) {
-      return "部分图纸尚未生成标题栏裁剪图。";
+      return "部分 PDF 图纸尚未生成标题栏裁剪图。";
     }
     if (sheets.length > 0 && !candidateResult) {
-      return "部分图纸尚未生成候选值。";
+      return "部分图纸尚未生成候选值。可先生成候选值，再进入校核。";
     }
     if (sheets.length > 0 && recommendedCount < sheets.length) {
-      return "部分图纸尚未生成推荐字段。";
+      return "部分图纸尚未生成推荐字段。可先生成推荐字段，或在校核工作台人工补充。";
     }
     if (issues.some((issue) => issue.status === "open" && issue.severity === "error")) {
       return "当前项目存在阻断问题，确认或导出前建议处理。";
@@ -1999,28 +2118,12 @@ function App() {
                 </form>
               ) : null}
 
-              <div className="summary-grid">
+              <div className="summary-grid project-overview">
                 <Metric label="图纸总数" value={summarySheetCount} />
-                <Metric label="已识别" value={selectedProject.stats.recognized_count} />
                 <Metric label="待校核" value={summaryUnreviewedCount} />
                 <Metric label="已确认" value={selectedProject.stats.confirmed_count} />
-                <Metric label="识别失败" value={selectedProject.stats.failed_count || failedSheetCount} />
                 <Metric label="问题数量" value={selectedProject.stats.issue_count} />
-                <Metric label="Error" value={summaryOpenErrorCount} />
-                <Metric label="Warning" value={summaryOpenWarningCount} />
                 <Metric label="已上传文件" value={projectFiles.length} />
-                <Metric label="PDF 文件" value={pdfFileCount} />
-                <Metric label="DXF 文件" value={dxfFileCount} />
-                <Metric label="DWG 文件" value={dwgFileCount} />
-                <Metric label="图纸页数量" value={sheets.length} />
-                <Metric label="DXF 图纸页" value={dxfSheetCount} />
-                <Metric label="DXF 已解析" value={dxfParsedCount} />
-                <Metric label="DXF 解析失败" value={dxfFailedCount} />
-                <Metric label="DXF 推荐字段" value={dxfRecommendedCount} />
-                <Metric label="预处理完成" value={preprocessedCount} />
-                <Metric label="标题栏裁剪" value={titleCroppedCount} />
-                <Metric label="推荐字段" value={recommendedCount} />
-                <Metric label="A/B/C/D" value={selectedProject.stats.trust_level_a_count + selectedProject.stats.trust_level_b_count + selectedProject.stats.trust_level_c_count + selectedProject.stats.trust_level_d_count} />
               </div>
 
               <section className="workbench-panel">
@@ -2028,43 +2131,39 @@ function App() {
                   <h3>当前项目待办</h3>
                   <span>{workbenchSummary ? "已刷新" : "加载中"}</span>
                 </div>
-                <div className="summary-grid compact action-metrics">
-                  <button type="button" onClick={() => applyQuickFilter({})}>
-                    <span>图纸总数</span>
-                    <strong>{summarySheetCount}</strong>
-                  </button>
-                  <button type="button" onClick={() => openReviewFilter({ review_status: "unreviewed" })}>
-                    <span>未校核</span>
-                    <strong>{summaryUnreviewedCount}</strong>
-                  </button>
-                  <button type="button" onClick={() => openReviewFilter({ low_confidence: true })}>
-                    <span>低可信</span>
-                    <strong>{summaryLowConfidenceCount}</strong>
-                  </button>
-                  <button type="button" onClick={() => openReviewFilter({ missing_field: "drawing_no" })}>
-                    <span>缺图号</span>
-                    <strong>{summaryMissingDrawingNoCount}</strong>
-                  </button>
-                  <button type="button" onClick={() => openReviewFilter({ missing_field: "drawing_name" })}>
-                    <span>缺图名</span>
-                    <strong>{summaryMissingDrawingNameCount}</strong>
-                  </button>
-                  <button type="button" onClick={() => openReviewFilter({ has_error: true })}>
-                    <span>Error 图纸</span>
-                    <strong>{summaryOpenErrorCount}</strong>
-                  </button>
-                  <button type="button" onClick={() => openReviewFilter({ has_warning: true })}>
-                    <span>Warning 图纸</span>
-                    <strong>{summaryOpenWarningCount}</strong>
-                  </button>
-                  <button type="button" onClick={() => applyQuickFilter({ source_format: "dxf" })}>
-                    <span>CAD 预览缺失</span>
-                    <strong>{summaryCadPreviewMissingCount}</strong>
-                  </button>
-                </div>
-                <div className="workbench-timestamps">
-                  <span>最近导出：{formatDate(workbenchSummary?.last_export_at ?? null)}</span>
-                  <span>最近备份：{formatDate(workbenchSummary?.last_backup_at ?? null)}</span>
+                <div className="todo-groups">
+                  <div className="todo-group">
+                    <p className="eyebrow">基础</p>
+                    <div className="todo-metrics">
+                      <TodoMetric label="图纸总数" value={summarySheetCount} onClick={() => applyQuickFilter({})} />
+                      <TodoMetric label="已确认" value={selectedProject.stats.confirmed_count} onClick={() => openReviewFilter({ review_status: "confirmed" })} tone="good" />
+                      <TodoMetric label="未校核" value={summaryUnreviewedCount} onClick={() => openReviewFilter({ review_status: "unreviewed" })} tone={summaryUnreviewedCount > 0 ? "attention" : "good"} />
+                    </div>
+                  </div>
+                  <div className="todo-group">
+                    <p className="eyebrow">质量</p>
+                    <div className="todo-metrics">
+                      <TodoMetric label="缺图号" value={summaryMissingDrawingNoCount} onClick={() => openReviewFilter({ missing_field: "drawing_no" })} tone={summaryMissingDrawingNoCount > 0 ? "warning" : "good"} />
+                      <TodoMetric label="缺图名" value={summaryMissingDrawingNameCount} onClick={() => openReviewFilter({ missing_field: "drawing_name" })} tone={summaryMissingDrawingNameCount > 0 ? "warning" : "good"} />
+                      <TodoMetric label="低可信" value={summaryLowConfidenceCount} onClick={() => openReviewFilter({ low_confidence: true })} tone={summaryLowConfidenceCount > 0 ? "attention" : "good"} />
+                      <TodoMetric label="error" value={summaryOpenErrorCount} onClick={() => openReviewFilter({ has_error: true })} tone={summaryOpenErrorCount > 0 ? "danger" : "good"} />
+                      <TodoMetric label="warning" value={summaryOpenWarningCount} onClick={() => openReviewFilter({ has_warning: true })} tone={summaryOpenWarningCount > 0 ? "warning" : "good"} />
+                    </div>
+                  </div>
+                  <div className="todo-group">
+                    <p className="eyebrow">辅助</p>
+                    <div className="todo-metrics">
+                      <TodoMetric label="CAD 预览缺失" value={summaryCadPreviewMissingCount} onClick={() => applyQuickFilter({ source_format: "dxf" })} tone={summaryCadPreviewMissingCount > 0 ? "attention" : "good"} />
+                      <div className="todo-timestamp">
+                        <span>最近导出</span>
+                        <strong>{workbenchSummary?.last_export_at ? formatDate(workbenchSummary.last_export_at) : "暂无记录"}</strong>
+                      </div>
+                      <div className="todo-timestamp">
+                        <span>最近备份</span>
+                        <strong>{workbenchSummary?.last_backup_at ? formatDate(workbenchSummary.last_backup_at) : "暂无记录"}</strong>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -2083,12 +2182,33 @@ function App() {
               <section className="quick-workbench">
                 <div className="section-title">
                   <h3>快捷操作</h3>
-                  <span>常用入口</span>
+                  <span>常用入口，按当前项目状态推荐</span>
                 </div>
-                <div className="quick-action-grid">
-                  {projectQuickActions.map((action) => (
-                    <QuickActionButton action={action} key={action.label} />
-                  ))}
+                <div className="quick-action-groups">
+                  <div>
+                    <p className="eyebrow">导入与 CAD</p>
+                    <div className="quick-action-grid">
+                      {primaryQuickActions.map((action) => (
+                        <QuickActionButton action={action} key={action.label} />
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="eyebrow">校核</p>
+                    <div className="quick-action-grid">
+                      {reviewQuickActions.map((action) => (
+                        <QuickActionButton action={action} key={action.label} />
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="eyebrow">交付与维护</p>
+                    <div className="quick-action-grid">
+                      {outputQuickActions.map((action) => (
+                        <QuickActionButton action={action} key={action.label} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -2112,7 +2232,7 @@ function App() {
                   <br />
                   <strong>升级说明：</strong>升级新版 portable 前，请先备份 app_data；升级后将旧 app_data 复制到新版目录。
                 </p>
-                {backupError ? <p className="form-error">{backupError}</p> : null}
+                <ErrorNotice message={backupError} />
                 <div className="inline-actions">
                   <button type="button" onClick={handleCreateBackup} disabled={backupBusy}>
                     {backupBusy ? "正在备份..." : "备份当前项目"}
@@ -2163,7 +2283,12 @@ function App() {
                     <span>{backupRecords.length} 条</span>
                   </div>
                   {backupRecords.length === 0 ? (
-                    <p className="empty-state">暂无项目备份</p>
+                    <EmptyState
+                      title="暂无备份记录"
+                      description="导出或完成阶段性校核后，建议创建一个项目备份，便于回退或迁移。"
+                      actionLabel="备份当前项目"
+                      onAction={handleCreateBackup}
+                    />
                   ) : (
                     <div className="file-list">
                       {backupRecords.map((record) => (
@@ -2246,7 +2371,7 @@ function App() {
                     <Metric label="database 存在" value={dataSafetySummary.database_exists ? 1 : 0} />
                   </div>
                 ) : null}
-                {maintenanceError ? <p className="form-error">{maintenanceError}</p> : null}
+                <ErrorNotice message={maintenanceError} />
                 <div className="inline-actions">
                   <button type="button" onClick={handleRunSystemHealthCheck} disabled={maintenanceBusy === "system-health"}>
                     {maintenanceBusy === "system-health" ? "检查中..." : "运行系统健康检查"}
@@ -2284,7 +2409,10 @@ function App() {
                     {healthIssueItems(systemHealthResult.items).length > 0 ? (
                       <HealthIssueList items={systemHealthResult.items} />
                     ) : (
-                      <p className="success-message">系统健康检查未发现异常项。</p>
+                      <EmptyState
+                        title="未发现健康检查问题"
+                        description="系统数据目录、导出和备份记录当前没有需要处理的异常。"
+                      />
                     )}
                   </div>
                 ) : null}
@@ -2308,7 +2436,10 @@ function App() {
                     {healthIssueItems(projectHealthResult.items).length > 0 ? (
                       <HealthIssueList items={projectHealthResult.items} />
                     ) : (
-                      <p className="success-message">当前项目完整性检查未发现异常项。</p>
+                      <EmptyState
+                        title="当前项目未发现健康检查问题"
+                        description="项目文件、预览、导出和备份引用当前没有需要处理的异常。"
+                      />
                     )}
                   </div>
                 ) : null}
@@ -2332,7 +2463,10 @@ function App() {
                         ))}
                       </div>
                     ) : (
-                      <p className="success-message">未发现数据库未引用的项目文件。</p>
+                      <EmptyState
+                        title="未发现孤儿文件"
+                        description="项目目录中没有数据库未引用的文件。"
+                      />
                     )}
                   </div>
                 ) : null}
@@ -2546,7 +2680,7 @@ function App() {
                     <span>耗时：{formatDuration(cadPipelineElapsed)}</span>
                   </div>
                 ) : null}
-                {cadPipelineError ? <p className="form-error">{cadPipelineError}</p> : null}
+                <ErrorNotice message={cadPipelineError} />
                 {latestBatchId && busyAction === `cad-preview-batch-${latestBatchId}` ? (
                   <div className="pipeline-running">
                     <strong>正在生成 CAD 预览...</strong>
@@ -2763,7 +2897,7 @@ function App() {
                   </div>
                 </form>
                 {converterMessage ? <p className="success-message">{converterMessage}</p> : null}
-                {converterError ? <p className="form-error">{converterError}</p> : null}
+                <ErrorNotice message={converterError} />
                 {dwgConvertResult?.status === "success" ? (
                   <p className="success-message">DWG 已转换为 DXF：{dwgConvertResult.converted_file_path}</p>
                 ) : null}
@@ -2848,9 +2982,12 @@ function App() {
                       ))}
                     </div>
                   ) : (
-                    <p className="empty-state">请选择一个或多个 PDF / DXF / DWG 文件。</p>
+                    <EmptyState
+                      title="还没有选择图纸文件"
+                      description="请选择一个或多个 PDF、DXF 或 DWG 文件，系统会按文件类型进入对应流程。"
+                    />
                   )}
-                  {importError ? <p className="form-error">{importError}</p> : null}
+                  <ErrorNotice message={importError} />
                   <button type="submit">开始导入</button>
                 </form>
               ) : null}
@@ -2927,14 +3064,14 @@ function App() {
                 </div>
               ) : null}
 
-              {splitError ? <p className="form-error">{splitError}</p> : null}
-              {dxfPrepareError ? <p className="form-error">{dxfPrepareError}</p> : null}
-              {cadParseError ? <p className="form-error">{cadParseError}</p> : null}
-              {cadPreviewError ? <p className="form-error">{cadPreviewError}</p> : null}
-              {titleCropError ? <p className="form-error">{titleCropError}</p> : null}
-              {recognitionError ? <p className="form-error">{recognitionError}</p> : null}
-              {candidateError ? <p className="form-error">{candidateError}</p> : null}
-              {fusionError ? <p className="form-error">{fusionError}</p> : null}
+              <ErrorNotice message={splitError} />
+              <ErrorNotice message={dxfPrepareError} />
+              <ErrorNotice message={cadParseError} />
+              <ErrorNotice message={cadPreviewError} />
+              <ErrorNotice message={titleCropError} />
+              <ErrorNotice message={recognitionError} />
+              <ErrorNotice message={candidateError} />
+              <ErrorNotice message={fusionError} />
 
               {cadPreviewResult ? (
                 <p className={cadPreviewResult.status === "success" ? "success-message" : "form-error"}>
@@ -3331,12 +3468,35 @@ function App() {
                 </div>
                 {projectNotice ? <p className="empty-state">{projectNotice}</p> : null}
                 {sheetPage.total > 0 && sheets.length === 0 ? (
-                  <p className="empty-state">没有符合条件的图纸。</p>
+                  <EmptyState
+                    title="当前筛选没有图纸"
+                    description="可以清空筛选条件，或切换到全部图纸继续查看。"
+                    actionLabel="查看全部图纸"
+                    onAction={() => applyQuickFilter({})}
+                  />
                 ) : null}
                 {sheets.length === 0 ? (
-                  <p className="empty-state">
-                    {projectFiles.length === 0 ? "当前项目还没有导入图纸。" : "暂无图纸页可显示。"}
-                  </p>
+                  projectFiles.length === 0 ? (
+                    <EmptyState
+                      title="当前项目还没有导入图纸"
+                      description="你可以先导入 PDF、DXF 或 DWG 文件开始生成图纸台账。"
+                      actionLabel="导入图纸"
+                      onAction={() => setImportOpen(true)}
+                    />
+                  ) : (
+                    <EmptyState
+                      title="暂无图纸页可显示"
+                      description="如果已导入 PDF，请先生成图纸页；如果是 DXF 或 DWG，请执行 CAD pipeline。"
+                      actionLabel={latestBatchId ? "执行下一步处理" : undefined}
+                      onAction={latestBatchId ? () => {
+                        if (canRunCadPipeline) {
+                          handleRunCadPipeline(latestBatchId);
+                        } else {
+                          handleSplitBatch(latestBatchId);
+                        }
+                      } : undefined}
+                    />
+                  )
                 ) : (
                   <div className="ledger-table">
                     <div className="ledger-row ledger-head">
@@ -3551,7 +3711,10 @@ function App() {
                     <span>Sheet {runsSheetId}</span>
                   </div>
                   {recognitionRuns.length === 0 ? (
-                    <p className="empty-state">暂无运行记录</p>
+                    <EmptyState
+                      title="暂无识别运行记录"
+                      description="生成标题栏裁剪、提取 PDF 文本或运行 OCR 后，这里会显示处理记录。"
+                    />
                   ) : (
                     <div className="file-list">
                       {recognitionRuns.map((run) => (
@@ -3575,7 +3738,12 @@ function App() {
                     <span>Sheet {candidatesSheetId}</span>
                   </div>
                   {candidates.length === 0 ? (
-                    <p className="empty-state">暂无候选值</p>
+                    <EmptyState
+                      title="图纸还没有候选值"
+                      description="请先生成候选值；如果仍为空，可以在校核工作台人工填写关键字段。"
+                      actionLabel={latestBatchId ? "生成候选值" : undefined}
+                      onAction={latestBatchId ? () => handleGenerateBatchCandidates(latestBatchId) : undefined}
+                    />
                   ) : (
                     <CandidateGroups candidates={candidates} />
                   )}
@@ -3589,7 +3757,12 @@ function App() {
                     <span>Sheet {fieldValuesSheetId}</span>
                   </div>
                   {fieldValues.length === 0 ? (
-                    <p className="empty-state">暂无推荐字段</p>
+                    <EmptyState
+                      title="暂无推荐字段"
+                      description="请先生成候选值并生成推荐字段；也可以在校核工作台人工填写。"
+                      actionLabel={latestBatchId ? "生成推荐字段" : undefined}
+                      onAction={latestBatchId ? () => handleFuseBatchFields(latestBatchId) : undefined}
+                    />
                   ) : (
                     <FieldValueList values={fieldValues} evidence={fieldEvidence} />
                   )}
@@ -3602,7 +3775,12 @@ function App() {
                   <span>{issues.length} 个 open 问题</span>
                 </div>
                 {issues.length === 0 ? (
-                  <p className="empty-state">暂无问题</p>
+                  <EmptyState
+                    title="暂无问题清单"
+                    description="当前项目没有打开的问题。可以继续校核，或导出 Excel。"
+                    actionLabel={canExportProject ? "导出 Excel" : undefined}
+                    onAction={canExportProject ? () => handleExportExcel(true) : undefined}
+                  />
                 ) : (
                   <div className="issue-list">
                     {issues.slice(0, 12).map((issue) => (
@@ -3626,7 +3804,7 @@ function App() {
                       {reviewSheet.original_file_name} 第 {reviewSheet.page_no} 页 / Ctrl+S 保存 / Ctrl+Enter 保存并确认
                     </span>
                   </div>
-                  {reviewError ? <p className="form-error">{reviewError}</p> : null}
+                  <ErrorNotice message={reviewError} />
                   {reviewMessage ? <p className="success-message">{reviewMessage}</p> : null}
                   <div className="review-layout">
                     <aside className="review-list">
@@ -3655,7 +3833,10 @@ function App() {
                     <section className="review-panel">
                       <h4>字段校核</h4>
                       {fieldValues.length === 0 ? (
-                        <p className="empty-state">部分图纸尚未生成推荐字段。</p>
+                        <EmptyState
+                          title="当前图纸暂无推荐字段"
+                          description="可以先生成候选值和推荐字段，也可以直接人工填写后确认。"
+                        />
                       ) : null}
                       {["drawing_no", "drawing_name", "discipline", "version", "issue_date"].map((field) => {
                         const value = fieldValues.find((item) => item.field_name === field);
@@ -3761,7 +3942,10 @@ function App() {
                     <section>
                       <h4>审计日志</h4>
                       {auditLogs.length === 0 ? (
-                        <p className="empty-state">暂无审计日志</p>
+                        <EmptyState
+                          title="暂无审计日志"
+                          description="保存字段、采用候选值或确认图纸后，这里会记录操作。"
+                        />
                       ) : (
                         <div className="file-list">
                           {auditLogs.map((log) => (
@@ -3785,7 +3969,7 @@ function App() {
                   <h3>导出中心</h3>
                   <span>Excel 图纸台账</span>
                 </div>
-                {exportError ? <p className="form-error">{exportError}</p> : null}
+                <ErrorNotice message={exportError} />
                 <div className="inline-actions">
                   <button type="button" onClick={handleCheckExport}>检查导出状态</button>
                   <button
@@ -3848,7 +4032,12 @@ function App() {
                     <span>{exportRecords.length} 条</span>
                   </div>
                   {exportRecords.length === 0 ? (
-                    <p className="empty-state">暂无导出记录</p>
+                    <EmptyState
+                      title="暂无导出记录"
+                      description="校核完成后导出 Excel，这里会保留最近生成的台账记录。"
+                      actionLabel={canExportProject ? "导出 Excel" : undefined}
+                      onAction={canExportProject ? () => handleExportExcel(true) : undefined}
+                    />
                   ) : (
                     <div className="file-list">
                       {exportRecords.map((record) => (
@@ -3869,60 +4058,75 @@ function App() {
             </>
           ) : (
             <div className="home-workbench">
-              <section className="home-panel">
-                <div className="section-title">
-                  <div>
-                    <p className="eyebrow">快捷工作台</p>
-                    <h2>选择或新建一个项目</h2>
+              <div className="home-grid">
+                <section className="home-panel recent-home">
+                  <div className="section-title">
+                    <h3>最近项目</h3>
+                    <span>{projects.slice(0, 5).length} 条</span>
                   </div>
-                  <span>{projects.length} 个项目</span>
-                </div>
-                <p className="empty-state">
-                  打开最近项目后，可直接查看当前项目待办、进入校核、导出 Excel、创建备份或运行健康检查。
-                </p>
-                <div className="quick-action-grid">
-                  <QuickActionButton action={{ label: "快速新建项目", onClick: () => document.querySelector<HTMLInputElement>(".project-form input")?.focus() }} />
-                  <QuickActionButton
-                    action={{
-                      label: "打开最近项目",
-                      onClick: () => projects[0] && handleOpenProject(projects[0].id),
-                      disabled: projects.length === 0,
-                      reason: "暂无最近项目"
-                    }}
-                  />
-                  <QuickActionButton
-                    action={{
-                      label: "系统健康检查",
-                      onClick: handleRunSystemHealthCheck,
-                      disabled: maintenanceBusy === "system-health",
-                      reason: maintenanceBusy === "system-health" ? "正在检查" : undefined
-                    }}
-                  />
-                </div>
-              </section>
+                  {projects.length === 0 ? (
+                    <EmptyState
+                      title="还没有项目"
+                      description="先在左侧新建项目，再导入 PDF、DXF 或 DWG 文件开始日常台账工作。"
+                      actionLabel="新建项目"
+                      onAction={() => document.querySelector<HTMLInputElement>(".project-form input")?.focus()}
+                    />
+                  ) : (
+                    <div className="recent-project-cards">
+                      {projects.slice(0, 5).map((project) => (
+                        <article className="recent-project-card" key={project.id}>
+                          <div>
+                            <strong title={project.name}>{project.name}</strong>
+                            <span>最近打开：{project.last_opened_at ? formatDate(project.last_opened_at) : "尚未打开"}</span>
+                          </div>
+                          <dl>
+                            <div><dt>图纸</dt><dd>{project.stats.sheet_count}</dd></div>
+                            <div><dt>未校核</dt><dd>{project.stats.need_review_count}</dd></div>
+                            <div><dt>问题</dt><dd>{project.stats.issue_count}</dd></div>
+                          </dl>
+                          <button type="button" onClick={() => handleOpenProject(project.id)}>打开项目</button>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
 
-              <section className="home-panel">
-                <div className="section-title">
-                  <h3>最近项目</h3>
-                  <span>{projects.slice(0, 5).length} 条</span>
-                </div>
-                {projects.length === 0 ? (
-                  <p className="empty-state">暂无项目，请先在左侧新建项目。</p>
-                ) : (
-                  <div className="file-list">
-                    {projects.slice(0, 5).map((project) => (
-                      <div className="file-row recent-project-row" key={project.id}>
-                        <span>{project.name}</span>
-                        <span>{formatDate(project.last_opened_at ?? project.updated_at)}</span>
-                        <span>{project.stats.sheet_count} 张</span>
-                        <span>{project.stats.need_review_count} 未校核</span>
-                        <span>{project.stats.issue_count} 问题</span>
-                        <button type="button" onClick={() => handleOpenProject(project.id)}>打开</button>
-                      </div>
-                    ))}
+                <section className="home-panel quick-home">
+                  <div className="section-title">
+                    <div>
+                      <p className="eyebrow">快捷操作</p>
+                      <h3>从这里开始</h3>
+                    </div>
+                    <span>{healthError ? "后端未连接" : "本地可用"}</span>
                   </div>
-                )}
-              </section>
+                  <div className="quick-action-grid">
+                    <QuickActionButton action={{ label: "快速新建项目", onClick: () => document.querySelector<HTMLInputElement>(".project-form input")?.focus(), primary: true }} />
+                    <QuickActionButton
+                      action={{
+                        label: "打开最近项目",
+                        onClick: () => projects[0] && handleOpenProject(projects[0].id),
+                        disabled: projects.length === 0,
+                        reason: "暂无最近项目"
+                      }}
+                    />
+                    <QuickActionButton
+                      action={{
+                        label: "系统健康检查",
+                        onClick: handleRunSystemHealthCheck,
+                        disabled: maintenanceBusy === "system-health",
+                        reason: maintenanceBusy === "system-health" ? "正在检查" : undefined,
+                        busy: maintenanceBusy === "system-health"
+                      }}
+                    />
+                  </div>
+                  {healthError ? (
+                    <div className="connection-error">
+                      <strong>后端未连接</strong>
+                      <span>请确认本地服务已启动，再进行项目操作。</span>
+                    </div>
+                  ) : null}
+                </section>
+              </div>
 
               <section className="flow-guide">
                 <div><strong>PDF 流程</strong><span>上传 PDF → 拆页 → 识别 → 校核 → 导出 Excel</span></div>
@@ -3961,7 +4165,10 @@ function App() {
                         alt={`${previewSheet.original_file_name} 第 ${previewSheet.page_no} 页预览`}
                       />
                     ) : (
-                      <p className="empty-state">图片不可用或文件缺失。</p>
+                      <EmptyState
+                        title="整页预览不可用"
+                        description="预览文件可能缺失。请重新生成图纸页预览，或检查 app_data 是否完整。"
+                      />
                     )}
                   </>
                 ) : (
@@ -4001,7 +4208,10 @@ function App() {
                   </p>
                 ) : (
                   <div className="modal-actions">
-                    <p className="empty-state">部分图纸尚未生成标题栏裁剪图。</p>
+                    <EmptyState
+                      title="尚未生成标题栏裁剪图"
+                      description="先生成标题栏裁剪图，再提取或识别标题栏内容。"
+                    />
                     <button type="button" onClick={() => handleCropSheetTitle(previewSheet.id)}>
                       生成标题栏裁剪
                     </button>
@@ -4070,7 +4280,10 @@ function App() {
                 <section>
                   <h4>推荐字段</h4>
                   {fieldValues.length === 0 ? (
-                    <p className="empty-state">暂无推荐字段</p>
+                    <EmptyState
+                      title="暂无推荐字段"
+                      description="生成候选值和推荐字段后，这里会展示系统建议值与证据。"
+                    />
                   ) : (
                     <FieldValueList values={fieldValues} evidence={fieldEvidence} />
                   )}
@@ -4078,7 +4291,10 @@ function App() {
                 <section>
                   <h4>候选值</h4>
                   {candidates.length === 0 ? (
-                    <p className="empty-state">暂无候选值</p>
+                    <EmptyState
+                      title="暂无候选值"
+                      description="请先生成候选值；如果图纸文字较少，可以在校核工作台人工填写。"
+                    />
                   ) : (
                     <CandidateGroups candidates={candidates} />
                   )}
@@ -4086,7 +4302,10 @@ function App() {
                 <section>
                   <h4>识别运行记录</h4>
                   {recognitionRuns.length === 0 ? (
-                    <p className="empty-state">暂无运行记录</p>
+                    <EmptyState
+                      title="暂无运行记录"
+                      description="执行文本提取、OCR 或候选值生成后，这里会显示运行记录。"
+                    />
                   ) : (
                     <div className="file-list">
                       {recognitionRuns.map((run) => (
@@ -4104,7 +4323,10 @@ function App() {
                 <section>
                   <h4>问题</h4>
                   {issues.filter((issue) => issue.sheet_id === previewSheet.id).length === 0 ? (
-                    <p className="empty-state">暂无问题</p>
+                    <EmptyState
+                      title="暂无问题"
+                      description="当前图纸没有打开的问题，可以继续校核或确认。"
+                    />
                   ) : (
                     <div className="issue-list">
                       {issues
@@ -4180,7 +4402,10 @@ function App() {
                   ))}
                 </ul>
                 {cadParseSummary.sample_texts.length === 0 && cadParseSummary.sample_mtexts.length === 0 && cadParseSummary.sample_attribs.length === 0 ? (
-                  <p className="empty-state">CAD 可读取，但暂无可展示的文字或块属性。</p>
+                  <EmptyState
+                    title="暂无可展示的 CAD 文字"
+                    description="CAD 文件可以读取，但没有提取到文字或块属性。可返回项目页人工校核字段。"
+                  />
                 ) : null}
               </div>
             </div>

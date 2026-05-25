@@ -204,10 +204,38 @@ export function dataHealthSuggestion(errorCode: string | null | undefined) {
 }
 
 export function formatApiError(error: unknown, fallback: string) {
+  const suggestionForCode = (errorCode: string) => {
+    if (errorCode === "NETWORK_ERROR") {
+      return "请确认后端服务已启动，并保持本地窗口不要关闭。";
+    }
+    if (errorCode === "REQUEST_TIMEOUT") {
+      return "请稍后重试；如果正在处理大图纸，建议减少单批数量。";
+    }
+    if (errorCode.startsWith("CAD_PREVIEW")) {
+      return pipelineErrorSuggestion(errorCode);
+    }
+    if (errorCode.includes("BACKUP")) {
+      return "请检查 app_data/backups 是否可写，必要时重新创建备份。";
+    }
+    if (errorCode.includes("EXPORT")) {
+      return "请确认当前项目有图纸，并检查导出目录是否可写。";
+    }
+    return errorCodeMessage(errorCode, "请根据错误说明处理后重试。");
+  };
+
   if (error && typeof error === "object") {
     const maybe = error as { errorCode?: string | null; message?: string };
     if (maybe.errorCode) {
-      return `${maybe.errorCode}：${errorCodeMessage(maybe.errorCode, maybe.message || fallback)}`;
+      const message =
+        maybe.errorCode === "NETWORK_ERROR"
+          ? "后端未连接或服务未启动。"
+          : errorCodeMessage(maybe.errorCode, maybe.message || fallback);
+      return [
+        "操作失败",
+        `错误码：${maybe.errorCode}`,
+        `说明：${message}`,
+        `建议：${suggestionForCode(maybe.errorCode)}`
+      ].join("\n");
     }
     if (maybe.message) {
       return maybe.message;
