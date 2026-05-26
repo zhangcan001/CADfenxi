@@ -137,11 +137,45 @@ def _collect_text_items(cad_json: dict, exclude_bbox: list[float] | None) -> lis
             items.append(item)
 
     for mtext in modelspace.get("mtexts", []):
-        item = _text_to_item(mtext, mtext.get("char_height", 0))
-        if item and not _in_bbox(item["x"], item["y"], exclude_bbox):
-            items.append(item)
+        for split_record in _split_mtext_lines(mtext):
+            item = _text_to_item(split_record, split_record.get("char_height", 0))
+            if item and not _in_bbox(item["x"], item["y"], exclude_bbox):
+                items.append(item)
 
     return items
+
+
+def _split_mtext_lines(mtext: dict) -> list[dict]:
+    """把多行 MTEXT 拆成多个单行记录，y 坐标按 char_height 递减。
+
+    解决：表格聚类按 y 聚类时，单条 MTEXT 含多行会被当成 1 行，导致丢字。
+    """
+    clean = (mtext.get("clean_text") or "")
+    if "\n" not in clean:
+        return [mtext]
+    insert = mtext.get("insert") or [0, 0, 0]
+    try:
+        x = float(insert[0])
+        y0 = float(insert[1])
+    except (TypeError, ValueError, IndexError):
+        return [mtext]
+    try:
+        char_h = float(mtext.get("char_height") or 0) or 2.5
+    except (TypeError, ValueError):
+        char_h = 2.5
+    lines = [line.strip() for line in clean.split("\n") if line.strip()]
+    if len(lines) <= 1:
+        return [mtext]
+    records: list[dict] = []
+    for index, line in enumerate(lines):
+        records.append(
+            {
+                **mtext,
+                "clean_text": line,
+                "insert": [x, y0 - index * char_h, insert[2] if len(insert) > 2 else 0],
+            }
+        )
+    return records
 
 
 def _text_to_item(record: dict, raw_height: Any) -> dict | None:

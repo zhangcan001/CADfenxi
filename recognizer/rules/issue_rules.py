@@ -77,5 +77,30 @@ def issue_template(issue_code: str, value: str | None = None) -> tuple[str, str,
             "CAD 字段仅来自文件名",
             "建议结合 DXF 标题栏文字或人工校核确认字段值。",
         ),
+        "CROSS_DRAWING_NO_DUPLICATE": (
+            "error",
+            f"跨图重复图号：{value}",
+            "项目内多张已确认图纸使用相同图号，请核对版本或修正其中一份。",
+        ),
+        "CROSS_VERSION_SKIP": (
+            "warning",
+            f"版本号疑似跳号：{value}",
+            "请核对是否缺失中间版本图纸，或在校核阶段补齐版本号。",
+        ),
+        "CROSS_DISCIPLINE_PREFIX_MISMATCH": (
+            "warning",
+            f"专业与图号前缀不一致：{value}",
+            "请核对图号前缀（如建施/电施/PD/EE）与专业字段是否对应。",
+        ),
+        "CROSS_ISSUE_DATE_INCONSISTENT": (
+            "warning",
+            f"同图号同版本出图日期不一致：{value}",
+            "请核对同图号同版本的出图日期是否应为同一天。",
+        ),
+        "CROSS_VERSION_DATE_REGRESS": (
+            "warning",
+            f"新版本出图日期早于旧版本：{value}",
+            "通常新版本应当晚于旧版本，请核对版本号或出图日期。",
+        ),
     }
     return templates.get(issue_code, ("warning", issue_code, "请在后续校核阶段复核该问题。"))

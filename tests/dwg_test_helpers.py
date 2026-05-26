@@ -231,6 +231,50 @@ def acad_table_dxf(
     return stream.getvalue().encode("utf-8")
 
 
+def dxf_with_insert_blocks(blocks: list[dict]) -> bytes:
+    """合成一个含 INSERT 块引用的 DXF。
+
+    blocks 列表元素示例：
+      {"name": "LAMP", "layer": "EE-LIGHT", "positions": [(0,0), (10,0)],
+       "attribs": {"型号": "AL-A1"}}
+    """
+    doc = ezdxf.new("R2010")
+    block_layout_map: dict[str, object] = {}
+    for spec in blocks:
+        name = spec["name"]
+        if name in block_layout_map:
+            continue
+        block = doc.blocks.new(name=name)
+        # 添加一条简单的几何让块非空
+        block.add_line((0, 0), (1, 0))
+        attribs = spec.get("attribs") or {}
+        for tag in attribs:
+            block.add_attdef(tag=tag, insert=(0, 0), height=2.5)
+        block_layout_map[name] = block
+
+    msp = doc.modelspace()
+    for spec in blocks:
+        name = spec["name"]
+        layer = spec.get("layer", "0")
+        positions = spec.get("positions") or [(0, 0)]
+        attribs = spec.get("attribs") or {}
+        for x, y in positions:
+            insert = msp.add_blockref(name, (x, y), dxfattribs={"layer": layer})
+            if attribs:
+                try:
+                    insert.add_auto_attribs(attribs)
+                except (AttributeError, TypeError):
+                    for tag, value in attribs.items():
+                        try:
+                            insert.add_attrib(tag=tag, text=str(value), insert=(x, y))
+                        except (AttributeError, TypeError):
+                            pass
+
+    stream = io.StringIO()
+    doc.write(stream)
+    return stream.getvalue().encode("utf-8")
+
+
 def wait_for_extract_tables_job(
     client: TestClient, batch_id: int, timeout_s: float = 60.0
 ) -> dict:

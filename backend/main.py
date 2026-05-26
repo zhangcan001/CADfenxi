@@ -19,6 +19,8 @@ from backend.api.recognition import router as recognition_router
 from backend.api.review import router as review_router
 from backend.api.sheets import router as sheets_router
 from backend.api.tables import router as tables_router
+from backend.api.block_stats import router as block_stats_router
+from backend.api.consistency import router as consistency_router
 from backend.api.title_crops import router as title_crops_router
 from backend.core.config import settings
 from backend.core.database import init_database
@@ -58,6 +60,8 @@ app.include_router(sheets_router)
 app.include_router(cad_router)
 app.include_router(cad_pipeline_router)
 app.include_router(tables_router)
+app.include_router(block_stats_router)
+app.include_router(consistency_router)
 app.include_router(title_crops_router)
 app.include_router(recognition_router)
 app.include_router(candidates_router)

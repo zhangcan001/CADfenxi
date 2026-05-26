@@ -1,5 +1,43 @@
 # 发布说明
 
+# v1.1.5-deep-extract 发布说明
+
+## 一、版本定位
+
+v1.1.5-deep-extract 在 v1.1.4 表格抽取基础上完成「深度提取 + 跨图校验」闭环：
+- 阶段 3：DXF INSERT 块统计（设备/符号维度的全项目清单）
+- 阶段 4：跨图纸一致性校验（同图号 / 版本跳号 / 前缀错位 / 出图日期不一致 / 倒退）
+- 前端：sheet 详情页新增「图纸内嵌表格」板块（v1.1.4 抽到的表终于看得见）
+- 算法：标题栏定位文字密度自适应 + MTEXT 多行拆分
+
+## 二、本版重点
+
+### 后端
+- 新增 `drawing_block_stats` 表 + Alembic 迁移 `0007_drawing_block_stats`
+- 新增 `recognizer/cad_engine/block_aggregator.py` 纯算法：
+  按 (block_name, layer) 聚合，排除标题块/匿名块，由 layer 推断专业
+- 新增 `backend/services/block_stats_service.py`（单 sheet 同步 + batch 异步）
+- 新增 5 个 block stats REST 端点
+- 新增 `backend/services/consistency_check_service.py`，5 条跨图规则
+- 新增 `POST /api/projects/{id}/consistency-check`
+- `parse_prepared_dxf` 成功后自动触发 block stats（失败不阻塞）
+- Excel 新增「图纸块统计」sheet
+- 标题栏 fallback 由「固定右下 1/4」改为「文字密度启发式」
+- 表格聚类阶段把含 `\n` 的 MTEXT 拆成多行
+
+### 前端
+- 新增 `EmbeddedTablesSection` 组件，sheet 详情显示已抽表格
+- 按 `table_kind` 分组（设备/材料/图纸目录/图例/其他）
+- 折叠卡片 + 「复制 CSV」按钮，苹果风轻量样式
+- 集成在「问题清单」之后
+
+## 三、仍有限制
+
+- block_aggregator 不区分「设备符号」和「构件/标注」块；监理可在 UI 用「推断专业」筛选
+- consistency_check 仅扫 `review_status = 'confirmed'` sheet，未确认图纸不参与
+- 标题栏自适应阈值偏保守（文字数 < 8 直接 None），偶尔会漏判
+- MTEXT 拆行用 char_height 做 y 步长，少数倾斜文字可能轻微偏移
+
 # v1.1.4-table-extract 发布说明
 
 ## 一、版本定位

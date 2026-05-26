@@ -36,6 +36,7 @@ def init_database() -> None:
     import backend.models.drawing_issue
     import backend.models.drawing_sheet
     import backend.models.drawing_table
+    import backend.models.drawing_block_stat
     import backend.models.export_record
     import backend.models.field_evidence
     import backend.models.field_value

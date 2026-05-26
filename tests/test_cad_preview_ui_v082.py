@@ -8,7 +8,7 @@ from scripts.build_portable_package import DEFAULT_VERSION
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "v1.1.4-table-extract"
+VERSION = "v1.1.5-deep-extract"
 
 
 def read_text(relative_path: str) -> str:

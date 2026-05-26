@@ -39,7 +39,7 @@ from recognizer.cad_engine.table_extractor import (
     extract_acad_tables,
     extract_text_cluster_tables,
 )
-from recognizer.cad_engine.title_area import find_title_block_bbox
+from recognizer.cad_engine.title_area import find_title_block_bbox, find_title_block_bbox_adaptive
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +93,11 @@ def extract_tables_from_sheet(
     cluster_tables: list[dict] = []
     if payload.include_text_cluster:
         inserts: list[dict] = []
+        texts: list[dict] = []
         for space in cad_json.get("spaces", []):
             inserts.extend(space.get("inserts", []) or [])
-        title_bbox = find_title_block_bbox(inserts)
+            texts.extend(space.get("texts", []) or [])
+        title_bbox = find_title_block_bbox_adaptive(inserts, texts)
         exclude_bbox = list(title_bbox) if title_bbox else None
         cluster_tables = extract_text_cluster_tables(cad_json, exclude_bbox=exclude_bbox)
 

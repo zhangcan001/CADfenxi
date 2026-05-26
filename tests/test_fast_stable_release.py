@@ -24,7 +24,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.1.4-table-extract"
+VERSION = "v1.1.5-deep-extract"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -321,3 +321,29 @@ def test_v102_temp_cleanup_does_not_delete_projects_backups_or_exports():
     assert delete_backup.status_code == 204
     assert not backup_path.exists()
     assert project_after_delete.status_code == 200
+
+
+def test_v115_deep_extract_smoke():
+    """v1.1.5 烟囱：parse-dxf 后 block_stats + tables 自动落库，consistency-check 不报错。"""
+    from dwg_test_helpers import dxf_with_insert_blocks
+
+    with TestClient(app) as client:
+        project_id = create_project(client, "v1.1.5 deep extract smoke")
+        content = dxf_with_insert_blocks(
+            [{"name": "LAMP", "layer": "EE-LIGHT", "positions": [(0, 0), (10, 0)]}]
+        )
+        upload = upload_files(client, project_id, [("smoke.dxf", content, "application/dxf")])
+        file_id = upload["files"][0]["id"]
+        parse_resp = client.post(f"/api/files/{file_id}/parse-dxf")
+        assert parse_resp.status_code == 200, parse_resp.text
+        sheet_id = parse_resp.json()["sheet_id"]
+
+        # 块统计自动触发
+        stats_resp = client.get(f"/api/sheets/{sheet_id}/block-stats")
+        assert stats_resp.status_code == 200
+
+        # 跨图校验
+        check_resp = client.post(f"/api/projects/{project_id}/consistency-check")
+        assert check_resp.status_code == 200
+        body = check_resp.json()
+        assert body["project_id"] == project_id

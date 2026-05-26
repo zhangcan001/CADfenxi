@@ -31,7 +31,7 @@ from test_full_flow_stability_v055 import (
 from dwg_test_helpers import DWG_BYTES, clear_converter_tables, create_converter_setting, write_mock_converter
 
 
-VERSION = "v1.1.4-table-extract"
+VERSION = "v1.1.5-deep-extract"
 
 
 def field_candidates(candidates: list[dict], field_name: str) -> list[dict]:

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.core.config import settings
+from backend.models.drawing_block_stat import DrawingBlockStat
 from backend.models.drawing_file import DrawingFile
 from backend.models.drawing_issue import DrawingIssue
 from backend.models.drawing_sheet import DrawingSheet
@@ -46,6 +47,9 @@ def build_excel(
 
     table_detail_ws = workbook.create_sheet("图纸表格明细")
     write_table_detail_sheet(table_detail_ws, db, project.id, context)
+
+    block_stats_ws = workbook.create_sheet("图纸块统计")
+    write_block_stats_sheet(block_stats_ws, db, project.id, context)
 
     review_ws = workbook.create_sheet("校核状态汇总")
     write_review_summary_sheet(review_ws, context)
@@ -340,6 +344,82 @@ def extraction_method_label(method: str) -> str:
     }.get(method, method)
 
 
+def write_block_stats_sheet(ws, db: Session, project_id: int, context: dict) -> None:
+    """每行 = 一个 (block_name, layer) 在某 sheet 的统计行。
+
+    列：序号 / 专业 / 图号 / 图名 / 块名 / 图层 / 推断专业 / 数量 / 关键属性
+    监理用「推断专业」筛选可拿到 全项目某专业的块清单（设备符号统计）。
+    """
+    headers = [
+        "序号",
+        "专业",
+        "图号",
+        "图名",
+        "块名",
+        "图层",
+        "推断专业",
+        "数量",
+        "关键属性",
+    ]
+    ws.append(headers)
+
+    sheet_meta: dict[int, tuple[str, str, str]] = {}
+    for sheet, _drawing_file, _issue_count, _err, _warn in context["sheets"]:
+        sheet_meta[sheet.id] = (
+            sheet.discipline or "未识别",
+            sheet.drawing_no or "",
+            sheet.drawing_name or "",
+        )
+
+    stats = db.scalars(
+        select(DrawingBlockStat)
+        .where(DrawingBlockStat.project_id == project_id)
+        .order_by(
+            DrawingBlockStat.sheet_id.asc(),
+            DrawingBlockStat.count.desc(),
+            DrawingBlockStat.id.asc(),
+        )
+    ).all()
+
+    counter = 1
+    for stat in stats:
+        discipline, drawing_no, drawing_name = sheet_meta.get(
+            stat.sheet_id, ("未识别", "", "")
+        )
+        ws.append(
+            [
+                counter,
+                discipline,
+                drawing_no,
+                drawing_name,
+                stat.block_name,
+                stat.layer_name or "",
+                stat.discipline_guess or "未识别",
+                stat.count,
+                _attribs_text(stat.attribs_summary_json),
+            ]
+        )
+        counter += 1
+
+    style_sheet(ws, number_columns={1, 8})
+
+
+def _attribs_text(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        data = json.loads(value)
+    except (ValueError, TypeError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    parts: list[str] = []
+    for tag, values in data.items():
+        if isinstance(values, list):
+            parts.append(f"{tag}: {', '.join(str(v) for v in values[:5])}")
+    return " | ".join(parts)
+
+
 def write_review_summary_sheet(ws, context: dict) -> None:
     sheets = context["sheets"]
     rows = [
@@ -546,6 +626,11 @@ def issue_type_label(issue_code: str) -> str:
         "FIELD_ONLY_FROM_FILENAME": "字段仅来自文件名",
         "OPEN_ERROR": "文件打开错误",
         "DXF_OPEN_FAILED": "DXF 打开失败",
+        "CROSS_DRAWING_NO_DUPLICATE": "跨图重复图号",
+        "CROSS_VERSION_SKIP": "版本号跳号",
+        "CROSS_DISCIPLINE_PREFIX_MISMATCH": "专业与图号前缀不一致",
+        "CROSS_ISSUE_DATE_INCONSISTENT": "同图号同版本出图日期不一致",
+        "CROSS_VERSION_DATE_REGRESS": "新版本出图日期倒退",
     }
     label = labels.get(issue_code, "其他问题")
     return f"{label}（{issue_code}）"

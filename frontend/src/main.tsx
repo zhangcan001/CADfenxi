@@ -180,6 +180,7 @@ import {
 import { AppHeader } from "./components/AppHeader";
 import { CadPreviewViewer } from "./components/CadPreviewViewer";
 import { CandidateGroups } from "./components/CandidateGroups";
+import { EmbeddedTablesSection } from "./components/EmbeddedTablesSection";
 import { FieldValueList } from "./components/FieldValueList";
 import { Metric } from "./components/Metric";
 import { ProjectsAside } from "./components/ProjectsAside";
@@ -3795,6 +3796,8 @@ function App() {
                   </div>
                 )}
               </div>
+
+              <EmbeddedTablesSection sheetId={reviewSheet?.id ?? null} />
 
               {reviewSheet ? (
                 <div className="review-workbench">
