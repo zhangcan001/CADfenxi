@@ -19,7 +19,7 @@ from backend.models.project import Project
 from scripts.build_portable_package import DEFAULT_VERSION, build_portable_package, package_name
 
 
-VERSION = "v1.2.2-fast-import-fix"
+VERSION = "v1.2.3-fast-import-stable"
 
 
 def _create_project_graph(name: str = "v1.1.6 深度抽取稳定") -> tuple[int, int, int]:

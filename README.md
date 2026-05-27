@@ -2,11 +2,13 @@
 
 ## 当前版本
 
-v1.2.2-fast-import-fix
+v1.2.3-fast-import-stable
 
 ## 版本定位
 
-v1.2.2 导入流程真实使用问题快速修复版本。
+v1.2.3 导入体验稳定包整理版本。
+
+v1.2.3-fast-import-stable 是导入体验稳定包整理版本。本版本不新增功能，重点回归 PDF / DXF / DWG 导入统计、重复文件提示、不支持格式提示、导入后下一步建议、项目待办刷新和 portable 打包。
 
 v1.2.2-fast-import-fix 是导入流程真实使用问题快速修复版本。本版本不新增识别能力，重点修复 PDF / DXF / DWG 混合导入统计、重复文件提示、不支持格式提示、DWG 转换工具提示和导入后的下一步建议。
 
@@ -167,16 +169,16 @@ DWG 上传
 
 ## 便携包
 
-生成 v1.2.2 导入流程快速修复包：
+生成 v1.2.3 导入体验稳定包：
 
 ```bash
-python scripts/build_portable_package.py --version v1.2.2-fast-import-fix --clean
+python scripts/build_portable_package.py --version v1.2.3-fast-import-stable --clean
 ```
 
 输出目录：
 
 ```text
-release/工程图纸智能台账识别系统-v1.2.2-fast-import-fix/
+release/工程图纸智能台账识别系统-v1.2.3-fast-import-stable/
 ```
 
 ## 发布材料
@@ -189,6 +191,10 @@ release/工程图纸智能台账识别系统-v1.2.2-fast-import-fix/
 - `RELEASE_NOTES.md`
 
 ## 历史版本摘要
+
+### v1.2.3-fast-import-stable 导入体验稳定包整理
+
+v1.2.3-fast-import-stable 是导入体验稳定包整理版本。本版本不新增功能，重点回归 PDF / DXF / DWG 导入统计、重复文件提示、不支持格式提示、导入后下一步建议、项目待办刷新和 portable 打包。
 
 ### v1.2.2-fast-import-fix 导入流程真实使用问题快速修复
 

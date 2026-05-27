@@ -1,5 +1,30 @@
 # 发布说明
 
+# v1.2.3-fast-import-stable 发布说明
+
+## 一、版本定位
+
+v1.2.3-fast-import-stable 是导入体验稳定包整理版本。
+
+## 二、本版重点
+
+- 收口 PDF / DXF / DWG 导入体验。
+- 回归混合导入统计。
+- 回归 duplicate / unsupported 提示。
+- 回归 next_actions。
+- 回归导入后项目待办刷新。
+- 回归核心业务流程。
+- 生成 portable 稳定包。
+
+## 三、仍有限制
+
+- 不新增识别算法。
+- 不直接解析 DWG。
+- 不做 CAD 编辑。
+- 不做算量。
+- 不做 BIM。
+- 不做 AI 图纸问答。
+
 # v1.2.2-fast-import-fix 发布说明
 
 ## 一、版本定位

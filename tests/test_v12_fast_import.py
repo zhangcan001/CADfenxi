@@ -18,7 +18,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_v11_fast_ux import export_excel
 
 
-VERSION = "v1.2.2-fast-import-fix"
+VERSION = "v1.2.3-fast-import-stable"
 
 
 @pytest.mark.parametrize(

@@ -25,7 +25,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.2.2-fast-import-fix"
+VERSION = "v1.2.3-fast-import-stable"
 ROOT = Path(__file__).resolve().parents[1]
 
 
