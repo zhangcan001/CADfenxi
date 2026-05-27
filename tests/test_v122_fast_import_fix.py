@@ -19,7 +19,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_v11_fast_ux import export_excel
 
 
-VERSION = "v1.2.3-fast-import-stable"
+VERSION = "v1.4-fast-real-project-trial"
 
 
 def post_import(client: TestClient, project_id: int, files: list[tuple[str, bytes, str]]) -> dict:

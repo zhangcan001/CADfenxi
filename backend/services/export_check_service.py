@@ -1,75 +1,105 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from backend.models.drawing_block_stat import DrawingBlockStat
 from backend.models.drawing_issue import DrawingIssue
 from backend.models.drawing_sheet import DrawingSheet
+from backend.models.drawing_table import DrawingTable
 from backend.schemas.export import ExportCheckResult
 
 
 def check_project_export(db: Session, project_id: int) -> ExportCheckResult:
-    sheet_count = db.scalar(
-        select(func.count()).select_from(DrawingSheet).where(DrawingSheet.project_id == project_id)
-    ) or 0
-    unconfirmed_count = db.scalar(
-        select(func.count())
-        .select_from(DrawingSheet)
-        .where(DrawingSheet.project_id == project_id, DrawingSheet.review_status != "confirmed")
-    ) or 0
-    open_error_count = db.scalar(
-        select(func.count())
-        .select_from(DrawingIssue)
-        .where(
-            DrawingIssue.project_id == project_id,
-            DrawingIssue.status == "open",
-            DrawingIssue.severity == "error",
-        )
-    ) or 0
-    open_warning_count = db.scalar(
-        select(func.count())
-        .select_from(DrawingIssue)
-        .where(
-            DrawingIssue.project_id == project_id,
-            DrawingIssue.status == "open",
-            DrawingIssue.severity == "warning",
-        )
-    ) or 0
-    open_error_sheet_count = issue_sheet_count(db, project_id, "error")
-    open_warning_sheet_count = issue_sheet_count(db, project_id, "warning")
-    failed_count = db.scalar(
-        select(func.count())
-        .select_from(DrawingSheet)
-        .where(DrawingSheet.project_id == project_id, DrawingSheet.status == "failed")
-    ) or 0
-    empty_drawing_no_count = db.scalar(
-        select(func.count())
-        .select_from(DrawingSheet)
-        .where(
-            DrawingSheet.project_id == project_id,
-            (DrawingSheet.drawing_no.is_(None)) | (DrawingSheet.drawing_no == ""),
-        )
-    ) or 0
-    empty_drawing_name_count = db.scalar(
-        select(func.count())
-        .select_from(DrawingSheet)
-        .where(
-            DrawingSheet.project_id == project_id,
-            (DrawingSheet.drawing_name.is_(None)) | (DrawingSheet.drawing_name == ""),
-        )
-    ) or 0
-    empty_discipline_count = db.scalar(
-        select(func.count())
-        .select_from(DrawingSheet)
-        .where(
-            DrawingSheet.project_id == project_id,
-            (DrawingSheet.discipline.is_(None)) | (DrawingSheet.discipline == ""),
-        )
-    ) or 0
-    trust_level_d_count = db.scalar(
-        select(func.count())
-        .select_from(DrawingSheet)
-        .where(DrawingSheet.project_id == project_id, DrawingSheet.trust_level == "D")
-    ) or 0
-    duplicate_drawing_no_count = duplicate_count(db, project_id)
+    with db.no_autoflush:
+        sheet_count = db.scalar(
+            select(func.count()).select_from(DrawingSheet).where(DrawingSheet.project_id == project_id)
+        ) or 0
+        unconfirmed_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingSheet)
+            .where(DrawingSheet.project_id == project_id, DrawingSheet.review_status != "confirmed")
+        ) or 0
+        open_error_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingIssue)
+            .where(
+                DrawingIssue.project_id == project_id,
+                DrawingIssue.status == "open",
+                DrawingIssue.severity == "error",
+            )
+        ) or 0
+        open_warning_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingIssue)
+            .where(
+                DrawingIssue.project_id == project_id,
+                DrawingIssue.status == "open",
+                DrawingIssue.severity == "warning",
+            )
+        ) or 0
+        open_error_sheet_count = issue_sheet_count(db, project_id, "error")
+        open_warning_sheet_count = issue_sheet_count(db, project_id, "warning")
+        failed_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingSheet)
+            .where(DrawingSheet.project_id == project_id, DrawingSheet.status == "failed")
+        ) or 0
+        empty_drawing_no_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingSheet)
+            .where(
+                DrawingSheet.project_id == project_id,
+                (DrawingSheet.drawing_no.is_(None)) | (DrawingSheet.drawing_no == ""),
+            )
+        ) or 0
+        empty_drawing_name_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingSheet)
+            .where(
+                DrawingSheet.project_id == project_id,
+                (DrawingSheet.drawing_name.is_(None)) | (DrawingSheet.drawing_name == ""),
+            )
+        ) or 0
+        empty_discipline_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingSheet)
+            .where(
+                DrawingSheet.project_id == project_id,
+                (DrawingSheet.discipline.is_(None)) | (DrawingSheet.discipline == ""),
+            )
+        ) or 0
+        trust_level_d_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingSheet)
+            .where(DrawingSheet.project_id == project_id, DrawingSheet.trust_level == "D")
+        ) or 0
+        duplicate_drawing_no_count = duplicate_count(db, project_id)
+        drawing_table_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingTable)
+            .where(DrawingTable.project_id == project_id)
+        ) or 0
+        low_confidence_table_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingTable)
+            .where(
+                DrawingTable.project_id == project_id,
+                DrawingTable.warnings_json.contains("LOW_CONFIDENCE_TABLE"),
+            )
+        ) or 0
+        block_stats_sheet_count = db.scalar(
+            select(func.count(func.distinct(DrawingBlockStat.sheet_id)))
+            .select_from(DrawingBlockStat)
+            .where(DrawingBlockStat.project_id == project_id)
+        ) or 0
+        consistency_issue_count = db.scalar(
+            select(func.count())
+            .select_from(DrawingIssue)
+            .where(
+                DrawingIssue.project_id == project_id,
+                DrawingIssue.status == "open",
+                DrawingIssue.issue_code.like("CROSS_%"),
+            )
+        ) or 0
     warnings = build_warnings(
         sheet_count,
         unconfirmed_count,
@@ -79,6 +109,10 @@ def check_project_export(db: Session, project_id: int) -> ExportCheckResult:
         empty_drawing_name_count,
         trust_level_d_count,
         duplicate_drawing_no_count,
+        drawing_table_count,
+        low_confidence_table_count,
+        block_stats_sheet_count,
+        consistency_issue_count,
     )
     summary_message = build_summary_message(
         sheet_count,
@@ -88,6 +122,10 @@ def check_project_export(db: Session, project_id: int) -> ExportCheckResult:
         open_error_count,
         open_warning_count,
         trust_level_d_count,
+        drawing_table_count,
+        low_confidence_table_count,
+        block_stats_sheet_count,
+        consistency_issue_count,
     )
     return ExportCheckResult(
         can_export=sheet_count > 0,
@@ -105,6 +143,10 @@ def check_project_export(db: Session, project_id: int) -> ExportCheckResult:
         empty_discipline_count=empty_discipline_count,
         trust_level_d_count=trust_level_d_count,
         duplicate_drawing_no_count=duplicate_drawing_no_count,
+        drawing_table_count=drawing_table_count,
+        low_confidence_table_count=low_confidence_table_count,
+        block_stats_sheet_count=block_stats_sheet_count,
+        consistency_issue_count=consistency_issue_count,
         warning_count=len(warnings),
         warnings=warnings,
     )
@@ -144,6 +186,10 @@ def build_warnings(
     empty_drawing_name_count: int,
     trust_level_d_count: int,
     duplicate_drawing_no_count: int,
+    drawing_table_count: int,
+    low_confidence_table_count: int,
+    block_stats_sheet_count: int,
+    consistency_issue_count: int,
 ) -> list[str]:
     warnings = []
     if sheet_count == 0:
@@ -162,6 +208,14 @@ def build_warnings(
         warnings.append(f"当前仍有 {trust_level_d_count} 张 D 级低可信图纸")
     if duplicate_drawing_no_count:
         warnings.append(f"当前存在 {duplicate_drawing_no_count} 张重复图号图纸")
+    if drawing_table_count:
+        warnings.append(f"当前导出将包含 {drawing_table_count} 条图纸表格明细，仅作为独立 sheet 辅助信息")
+    if low_confidence_table_count:
+        warnings.append(f"当前存在 {low_confidence_table_count} 条低可信表格，请在图纸表格明细中复核")
+    if block_stats_sheet_count:
+        warnings.append(f"当前导出将包含 {block_stats_sheet_count} 张图纸的块统计，仅作为独立 sheet 辅助信息")
+    if consistency_issue_count:
+        warnings.append(f"当前存在 {consistency_issue_count} 个跨图一致性问题，已进入问题清单")
     return warnings
 
 
@@ -173,6 +227,10 @@ def build_summary_message(
     open_error_count: int,
     open_warning_count: int,
     trust_level_d_count: int,
+    drawing_table_count: int,
+    low_confidence_table_count: int,
+    block_stats_sheet_count: int,
+    consistency_issue_count: int,
 ) -> str:
     if sheet_count == 0:
         return "当前项目没有图纸，无法导出 Excel 台账。"
@@ -184,7 +242,20 @@ def build_summary_message(
         f"{open_error_count} 个错误",
         f"{open_warning_count} 个警告",
         f"{trust_level_d_count} 张 D 级图纸",
+        f"{drawing_table_count} 条表格明细",
+        f"{low_confidence_table_count} 条低可信表格",
+        f"{block_stats_sheet_count} 张图纸含块统计",
+        f"{consistency_issue_count} 个一致性问题",
     ]
-    if any([unconfirmed_count, empty_drawing_no_count, empty_drawing_name_count, open_error_count, open_warning_count, trust_level_d_count]):
+    if any([
+        unconfirmed_count,
+        empty_drawing_no_count,
+        empty_drawing_name_count,
+        open_error_count,
+        open_warning_count,
+        trust_level_d_count,
+        low_confidence_table_count,
+        consistency_issue_count,
+    ]):
         return "，".join(parts) + "。仍可导出 Excel，但建议在正式使用前复核上述图纸。"
     return f"当前项目共有 {sheet_count} 张图纸，未发现导出前风险提示。"

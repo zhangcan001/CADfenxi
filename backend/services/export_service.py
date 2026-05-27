@@ -139,4 +139,8 @@ def precheck_payload(check_result) -> dict[str, int]:
         "open_error_count": check_result.open_error_count,
         "open_warning_count": check_result.open_warning_count,
         "d_level_count": check_result.trust_level_d_count,
+        "drawing_table_count": check_result.drawing_table_count,
+        "low_confidence_table_count": check_result.low_confidence_table_count,
+        "block_stats_sheet_count": check_result.block_stats_sheet_count,
+        "consistency_issue_count": check_result.consistency_issue_count,
     }

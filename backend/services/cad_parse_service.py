@@ -176,6 +176,7 @@ def parse_prepared_dxf(
             logger.warning(
                 "extract_tables auto-trigger failed sheet_id=%s: %s", sheet.id, exc
             )
+            _add_deep_extract_warning(db, sheet, "CAD_TABLE_EXTRACT_WARNING", str(exc))
         try:
             from backend.services import block_stats_service
             block_stats_service.extract_block_stats_from_sheet(db, sheet.id)
@@ -183,6 +184,8 @@ def parse_prepared_dxf(
             logger.warning(
                 "extract_blocks auto-trigger failed sheet_id=%s: %s", sheet.id, exc
             )
+            _add_deep_extract_warning(db, sheet, "CAD_BLOCK_STATS_WARNING", str(exc))
+        db.commit()
         return CadParseResult(
             file_id=drawing_file.id,
             sheet_id=sheet.id,
@@ -280,6 +283,27 @@ def failed_parse_result(
         error_code=error_code,
         error_message=error_message,
     )
+
+
+def _add_deep_extract_warning(
+    db: Session,
+    sheet: DrawingSheet,
+    issue_code: str,
+    message: str,
+) -> None:
+    try:
+        from backend.services import issue_service
+
+        issue_service.add_issue_for_sheet(
+            db,
+            sheet,
+            issue_code,
+            severity="warning",
+            message=f"{issue_code}: {message[:180]}",
+        )
+        db.flush()
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed to write deep extract warning sheet_id=%s code=%s", sheet.id, issue_code)
 
 
 def write_output_json(cad_json: dict, output_path: Path) -> str:

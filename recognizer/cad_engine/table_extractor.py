@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 MIN_ROWS = 3
 MIN_COLS = 2
 MIN_TOTAL_TEXTS = 6
+MIN_NON_EMPTY_CELLS = 6
+MIN_HEADER_NON_EMPTY_RATIO = 0.5
 
 ROW_Y_THRESHOLD_FACTOR = 1.5    # 同行：y 差 < median_h * 该系数
 ROW_GAP_MAX_FACTOR = 4.0        # 跨行：y 差 > median_h * 该系数 → 不在同表
@@ -62,7 +64,12 @@ def extract_acad_tables(document: Any) -> list[dict]:
             continue
         header = [_clean(cell) for cell in content[0]]
         rows = [[_clean(cell) for cell in row] for row in content[1:]]
+        if not _looks_like_table(header, rows):
+            continue
         rows, warnings = _enforce_size_limits(rows, header)
+        confidence = _table_confidence(header, rows, "acad_table")
+        if confidence < 70:
+            warnings.append("LOW_CONFIDENCE_TABLE")
         out.append(
             {
                 "extraction_method": "acad_table",
@@ -70,6 +77,7 @@ def extract_acad_tables(document: Any) -> list[dict]:
                 "rows": rows,
                 "row_count": len(rows),
                 "col_count": len(header),
+                "confidence": confidence,
                 "layer": _safe_layer(entity),
                 "bbox": _safe_bbox(entity),
                 "warnings": warnings,
@@ -287,12 +295,13 @@ def _build_table_from_run(run: list[list[dict]], median_h: float) -> dict | None
 
     header = grid[0]
     data_rows = grid[1:]
-    if not data_rows or not any(any(cell for cell in row) for row in data_rows):
-        return None
-    if not any(cell for cell in header):
+    if not _looks_like_table(header, data_rows):
         return None
 
     data_rows, warnings = _enforce_size_limits(data_rows, header)
+    confidence = _table_confidence(header, data_rows, "text_cluster")
+    if confidence < 70:
+        warnings.append("LOW_CONFIDENCE_TABLE")
 
     all_x = [item["x"] for row in run for item in row]
     all_y = [item["y"] for row in run for item in row]
@@ -306,6 +315,7 @@ def _build_table_from_run(run: list[list[dict]], median_h: float) -> dict | None
         "rows": data_rows,
         "row_count": len(data_rows),
         "col_count": len(columns),
+        "confidence": confidence,
         "layer": layer,
         "bbox": bbox,
         "warnings": warnings,
@@ -328,6 +338,70 @@ def _derive_columns(run: list[list[dict]], median_h: float) -> list[float]:
             bucket = [x]
     clusters.append(sum(bucket) / len(bucket))
     return clusters
+
+
+def _looks_like_table(header: list[str], rows: list[list[str]]) -> bool:
+    """Conservative filter for pseudo tables from notes or title blocks."""
+    if len(header) < MIN_COLS or len(rows) < MIN_ROWS - 1:
+        return False
+    if _non_empty_count([header] + rows) < MIN_NON_EMPTY_CELLS:
+        return False
+    header_non_empty = sum(1 for cell in header if cell.strip())
+    if header_non_empty / max(len(header), 1) < MIN_HEADER_NON_EMPTY_RATIO:
+        return False
+    row_widths = [sum(1 for cell in row if cell.strip()) for row in rows]
+    if not row_widths or max(row_widths) < MIN_COLS:
+        return False
+    useful_rows = sum(1 for width in row_widths if width >= MIN_COLS)
+    if useful_rows < MIN_ROWS - 1:
+        return False
+    if _looks_like_plain_notes(header, rows):
+        return False
+    return True
+
+
+def _non_empty_count(grid: list[list[str]]) -> int:
+    return sum(1 for row in grid for cell in row if cell.strip())
+
+
+def _looks_like_plain_notes(header: list[str], rows: list[list[str]]) -> bool:
+    grid = [header] + rows
+    text_cells = [cell.strip() for row in grid for cell in row if cell.strip()]
+    if not text_cells:
+        return True
+    long_cells = [cell for cell in text_cells if len(cell) >= 18]
+    note_keywords = (
+        "说明",
+        "备注",
+        "详见",
+        "参见",
+        "按规范",
+        "施工",
+        "复核",
+        "本图",
+        "不得",
+    )
+    note_hits = sum(1 for cell in text_cells if any(keyword in cell for keyword in note_keywords))
+    sparse_rows = sum(1 for row in grid if sum(1 for cell in row if cell.strip()) <= 1)
+    return (
+        len(long_cells) >= max(2, len(text_cells) // 2)
+        or note_hits >= max(2, len(text_cells) // 2)
+        or sparse_rows >= max(3, len(grid) - 1)
+    )
+
+
+def _table_confidence(header: list[str], rows: list[list[str]], method: str) -> int:
+    score = 86 if method == "acad_table" else 74
+    widths = [sum(1 for cell in row if cell.strip()) for row in [header] + rows]
+    if len(set(widths)) > 2:
+        score -= 10
+    if min(widths or [0]) < MIN_COLS:
+        score -= 8
+    if _looks_like_plain_notes(header, rows):
+        score -= 25
+    if len(rows) < 3:
+        score -= 8
+    return max(30, min(100, score))
 
 
 def _most_common_layer(run: list[list[dict]]) -> str:

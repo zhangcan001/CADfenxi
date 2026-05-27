@@ -72,6 +72,16 @@ def issue_template(issue_code: str, value: str | None = None) -> tuple[str, str,
             "DXF 未发现块属性标题栏",
             "当前候选主要来自普通 TEXT / MTEXT，建议核对标题栏文字是否完整。",
         ),
+        "CAD_TABLE_EXTRACT_WARNING": (
+            "warning",
+            "DXF 表格抽取失败或结果低可信",
+            "表格抽取仅作为辅助信息，不影响主台账识别；请在图纸表格明细中复核。",
+        ),
+        "CAD_BLOCK_STATS_WARNING": (
+            "warning",
+            "DXF 块统计失败或结果异常",
+            "块统计仅作为辅助统计，不影响主台账识别和 Excel 导出。",
+        ),
         "CAD_ONLY_FROM_FILENAME": (
             "info",
             "CAD 字段仅来自文件名",
@@ -81,6 +91,11 @@ def issue_template(issue_code: str, value: str | None = None) -> tuple[str, str,
             "error",
             f"跨图重复图号：{value}",
             "项目内多张已确认图纸使用相同图号，请核对版本或修正其中一份。",
+        ),
+        "CROSS_DRAWING_NAME_CONFLICT": (
+            "warning",
+            f"同图号图名不一致：{value}",
+            "请核对同图号图纸是否为不同版本、不同分册或图名录入错误。",
         ),
         "CROSS_VERSION_SKIP": (
             "warning",

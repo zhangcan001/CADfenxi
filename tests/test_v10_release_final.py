@@ -29,7 +29,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.2.3-fast-import-stable"
+VERSION = "v1.4-fast-real-project-trial"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -451,7 +451,7 @@ def test_v10_portable_package_contains_required_release_materials_and_clean_app_
     assert (package_dir / "RELEASE_NOTES.md").is_file()
     assert (package_dir / "requirements.txt").is_file()
     assert VERSION in package_info
-    assert "包类型：Windows 本地便携正式稳定版" in package_info
+    assert "包类型：Windows 便携版 Trial" in package_info
     assert "备份目录：app_data/backups/" in package_info
     assert "适用场景：个人本地工程图纸台账识别" in package_info
     assert not (package_dir / ".git").exists()

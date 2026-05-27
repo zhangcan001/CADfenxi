@@ -229,27 +229,34 @@ def write_discipline_summary_sheet(ws, context: dict) -> None:
 def write_table_detail_sheet(ws, db: Session, project_id: int, context: dict) -> None:
     """每行 = 一张表的一个数据行（unpack 后）。
 
-    列：序号 / 专业 / 图号 / 图名 / 表格类型 / 表格序号 / 抽取方式 / 行号 / 表头(JSON) / 数据(JSON) / 列数
+    列：序号 / Sheet ID / 原始文件名 / 专业 / 图号 / 图名 / 表格类型 / 表格序号 /
+    抽取方式 / 可信度 / 行号 / 行数 / 列数 / 表头(JSON) / 数据(JSON) / 抽取提示
     监理用「表格类型」筛选 equipment / material / drawing_index / legend。
     """
     headers = [
         "序号",
+        "Sheet ID",
+        "原始文件名",
         "专业",
         "图号",
         "图名",
         "表格类型",
         "表格序号",
         "抽取方式",
+        "可信度",
         "行号",
+        "行数",
+        "列数",
         "表头(JSON)",
         "数据(JSON)",
-        "列数",
+        "抽取提示",
     ]
     ws.append(headers)
 
-    sheet_meta: dict[int, tuple[str, str, str]] = {}
-    for sheet, _drawing_file, _issue_count, _err, _warn in context["sheets"]:
+    sheet_meta: dict[int, tuple[str, str, str, str]] = {}
+    for sheet, drawing_file, _issue_count, _err, _warn in context["sheets"]:
         sheet_meta[sheet.id] = (
+            drawing_file.original_name or "",
             sheet.discipline or "未识别",
             sheet.drawing_no or "",
             sheet.drawing_name or "",
@@ -267,44 +274,55 @@ def write_table_detail_sheet(ws, db: Session, project_id: int, context: dict) ->
 
     counter = 1
     for table in tables:
-        discipline, drawing_no, drawing_name = sheet_meta.get(
-            table.sheet_id, ("未识别", "", "")
+        original_name, discipline, drawing_no, drawing_name = sheet_meta.get(
+            table.sheet_id, ("", "未识别", "", "")
         )
         header_json = table.header_json or "[]"
         rows = _parse_rows_json(table.rows_json)
+        warnings = _json_list_text(table.warnings_json)
         if not rows:
             ws.append([
                 counter,
+                table.sheet_id,
+                original_name,
                 discipline,
                 drawing_no,
                 drawing_name,
                 table_kind_label(table.table_kind),
                 table.table_index,
                 extraction_method_label(table.extraction_method),
+                table_confidence_label(table.warnings_json),
                 0,
+                table.row_count,
+                table.col_count,
                 header_json,
                 "",
-                table.col_count,
+                warnings,
             ])
             counter += 1
             continue
         for row_idx, row in enumerate(rows, start=1):
             ws.append([
                 counter,
+                table.sheet_id,
+                original_name,
                 discipline,
                 drawing_no,
                 drawing_name,
                 table_kind_label(table.table_kind),
                 table.table_index,
                 extraction_method_label(table.extraction_method),
+                table_confidence_label(table.warnings_json),
                 row_idx,
+                table.row_count,
+                table.col_count,
                 header_json,
                 _row_to_text(row),
-                table.col_count,
+                warnings,
             ])
             counter += 1
 
-    style_sheet(ws, number_columns={1, 6, 8, 11})
+    style_sheet(ws, number_columns={1, 2, 8, 11, 12, 13})
 
 
 def _parse_rows_json(value: str | None) -> list[list[str]]:
@@ -327,6 +345,35 @@ def _row_to_text(row: list[str]) -> str:
     return " | ".join(cell for cell in row)
 
 
+def _json_list_text(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        data = json.loads(value)
+    except (ValueError, TypeError):
+        return ""
+    if not isinstance(data, list):
+        return ""
+    return " / ".join(str(item) for item in data if item)
+
+
+def table_confidence_label(warnings_json: str | None) -> str:
+    warnings = set(_json_list(warnings_json))
+    return "低可信" if "LOW_CONFIDENCE_TABLE" in warnings else "正常"
+
+
+def _json_list(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        data = json.loads(value)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [str(item) for item in data]
+
+
 def table_kind_label(kind: str) -> str:
     return {
         "equipment": "设备表",
@@ -347,11 +394,13 @@ def extraction_method_label(method: str) -> str:
 def write_block_stats_sheet(ws, db: Session, project_id: int, context: dict) -> None:
     """每行 = 一个 (block_name, layer) 在某 sheet 的统计行。
 
-    列：序号 / 专业 / 图号 / 图名 / 块名 / 图层 / 推断专业 / 数量 / 关键属性
+    列：序号 / Sheet ID / 原始文件名 / 专业 / 图号 / 图名 / 块名 / 图层 / 推断专业 / 数量 / 关键属性
     监理用「推断专业」筛选可拿到 全项目某专业的块清单（设备符号统计）。
     """
     headers = [
         "序号",
+        "Sheet ID",
+        "原始文件名",
         "专业",
         "图号",
         "图名",
@@ -363,9 +412,10 @@ def write_block_stats_sheet(ws, db: Session, project_id: int, context: dict) -> 
     ]
     ws.append(headers)
 
-    sheet_meta: dict[int, tuple[str, str, str]] = {}
-    for sheet, _drawing_file, _issue_count, _err, _warn in context["sheets"]:
+    sheet_meta: dict[int, tuple[str, str, str, str]] = {}
+    for sheet, drawing_file, _issue_count, _err, _warn in context["sheets"]:
         sheet_meta[sheet.id] = (
+            drawing_file.original_name or "",
             sheet.discipline or "未识别",
             sheet.drawing_no or "",
             sheet.drawing_name or "",
@@ -383,12 +433,14 @@ def write_block_stats_sheet(ws, db: Session, project_id: int, context: dict) -> 
 
     counter = 1
     for stat in stats:
-        discipline, drawing_no, drawing_name = sheet_meta.get(
-            stat.sheet_id, ("未识别", "", "")
+        original_name, discipline, drawing_no, drawing_name = sheet_meta.get(
+            stat.sheet_id, ("", "未识别", "", "")
         )
         ws.append(
             [
                 counter,
+                stat.sheet_id,
+                original_name,
                 discipline,
                 drawing_no,
                 drawing_name,
@@ -401,7 +453,7 @@ def write_block_stats_sheet(ws, db: Session, project_id: int, context: dict) -> 
         )
         counter += 1
 
-    style_sheet(ws, number_columns={1, 8})
+    style_sheet(ws, number_columns={1, 2, 10})
 
 
 def _attribs_text(value: str | None) -> str:
@@ -458,6 +510,11 @@ def write_info_sheet(ws, project: Project, check_result: ExportCheckResult, shee
         ("问题总数", issue_count),
         ("错误数量", check_result.open_error_count),
         ("警告数量", check_result.open_warning_count),
+        ("图纸表格明细数量", check_result.drawing_table_count),
+        ("低可信表格数量", check_result.low_confidence_table_count),
+        ("块统计图纸数量", check_result.block_stats_sheet_count),
+        ("跨图一致性问题数量", check_result.consistency_issue_count),
+        ("深度抽取导出说明", "图纸表格明细、图纸块统计和跨图一致性问题均为辅助信息；正式图纸总台账只使用主字段，不会被表格明细或块统计覆盖。"),
         ("数据来源说明", "PDF 来源：PDF 文本、标题栏 OCR、文件名、规则推断。DXF 来源：CAD 块属性、CAD 文字、CAD 多行文字、CAD 图层、文件名。DWG 来源：系统不直接解析 DWG，需外部工具转换为 DXF 后识别。人工确认值优先于机器识别值。"),
         ("重要限制说明", "本系统用于辅助生成图纸台账。低可信图纸、存在错误或警告的图纸，应人工复核。最终交付前应以人工校核结果为准。"),
         ("台账状态", "完整台账" if check_result.is_complete_ledger else "存在需复核项"),
@@ -510,6 +567,7 @@ def auto_width(ws) -> None:
 def apply_preferred_widths(ws) -> None:
     preferred = {
         "专业": 12,
+        "Sheet ID": 10,
         "图纸编号": 18,
         "图纸名称": 32,
         "原始文件名": 36,
@@ -523,6 +581,10 @@ def apply_preferred_widths(ws) -> None:
         "备注": 30,
         "内容": 80,
         "说明": 42,
+        "数据(JSON)": 48,
+        "表头(JSON)": 48,
+        "抽取提示": 32,
+        "关键属性": 42,
     }
     for cell in ws[1]:
         width = preferred.get(str(cell.value))
@@ -619,6 +681,8 @@ def issue_type_label(issue_code: str) -> str:
         "OCR_TEXT_EMPTY": "OCR 文本为空",
         "PDF_TEXT_EMPTY": "PDF 文本为空",
         "CAD_BLOCK_ATTR_MISSING": "CAD 块属性缺失",
+        "CAD_TABLE_EXTRACT_WARNING": "CAD 表格抽取提示",
+        "CAD_BLOCK_STATS_WARNING": "CAD 块统计提示",
         "CAD_PARSE_EMPTY_CONTENT": "CAD 解析内容为空",
         "LOW_CONFIDENCE": "低可信",
         "LOW_CONFIDENCE_NEED_REVIEW": "低可信需复核",
@@ -627,6 +691,7 @@ def issue_type_label(issue_code: str) -> str:
         "OPEN_ERROR": "文件打开错误",
         "DXF_OPEN_FAILED": "DXF 打开失败",
         "CROSS_DRAWING_NO_DUPLICATE": "跨图重复图号",
+        "CROSS_DRAWING_NAME_CONFLICT": "同图号图名不一致",
         "CROSS_VERSION_SKIP": "版本号跳号",
         "CROSS_DISCIPLINE_PREFIX_MISMATCH": "专业与图号前缀不一致",
         "CROSS_ISSUE_DATE_INCONSISTENT": "同图号同版本出图日期不一致",

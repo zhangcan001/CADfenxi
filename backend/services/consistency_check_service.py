@@ -25,12 +25,19 @@ from backend.models.drawing_issue import DrawingIssue
 from backend.models.drawing_sheet import DrawingSheet
 from backend.models.project import Project
 from backend.services import issue_service
+from recognizer.normalizer.drawing_no import (
+    is_blacklisted_drawing_no,
+    is_plausible_drawing_no,
+    is_supported_drawing_no,
+    normalize_drawing_no,
+)
 
 logger = logging.getLogger(__name__)
 
 
 CROSS_ISSUE_CODES = (
     "CROSS_DRAWING_NO_DUPLICATE",
+    "CROSS_DRAWING_NAME_CONFLICT",
     "CROSS_VERSION_SKIP",
     "CROSS_DISCIPLINE_PREFIX_MISMATCH",
     "CROSS_ISSUE_DATE_INCONSISTENT",
@@ -72,6 +79,7 @@ def run_consistency_check(db: Session, project_id: int) -> ConsistencyCheckSumma
     by_code: dict[str, int] = {}
 
     _check_duplicate(db, sheets, by_code)
+    _check_drawing_name_conflict(db, sheets, by_code)
     _check_version_skip(db, sheets, by_code)
     _check_discipline_prefix(db, sheets, by_code)
     _check_date_inconsistent(db, sheets, by_code)
@@ -89,8 +97,9 @@ def run_consistency_check(db: Session, project_id: int) -> ConsistencyCheckSumma
 def _check_duplicate(db: Session, sheets: list[DrawingSheet], by_code: dict[str, int]) -> None:
     groups: dict[str, list[DrawingSheet]] = defaultdict(list)
     for sheet in sheets:
-        if sheet.drawing_no:
-            groups[sheet.drawing_no.strip()].append(sheet)
+        drawing_no = _valid_drawing_no(sheet)
+        if drawing_no:
+            groups[drawing_no].append(sheet)
     for drawing_no, group in groups.items():
         if len(group) <= 1:
             continue
@@ -102,10 +111,41 @@ def _check_duplicate(db: Session, sheets: list[DrawingSheet], by_code: dict[str,
                 file_id=sheet.file_id,
                 sheet_id=sheet.id,
                 issue_code="CROSS_DRAWING_NO_DUPLICATE",
+                severity="warning",
                 message=f"项目内多张图纸使用相同图号「{drawing_no}」，共 {len(group)} 张。",
+                suggestion="请核对是否为同一图号不同版本、分册，或图号录入错误。",
             )
             by_code["CROSS_DRAWING_NO_DUPLICATE"] = by_code.get(
                 "CROSS_DRAWING_NO_DUPLICATE", 0
+            ) + 1
+
+
+def _check_drawing_name_conflict(
+    db: Session, sheets: list[DrawingSheet], by_code: dict[str, int]
+) -> None:
+    groups: dict[str, list[DrawingSheet]] = defaultdict(list)
+    for sheet in sheets:
+        drawing_no = _valid_drawing_no(sheet)
+        if drawing_no:
+            groups[drawing_no].append(sheet)
+    for drawing_no, group in groups.items():
+        names = sorted({(sheet.drawing_name or "").strip() for sheet in group if sheet.drawing_name})
+        if len(names) <= 1:
+            continue
+        for sheet in group:
+            issue_service.add_issue(
+                db,
+                project_id=sheet.project_id,
+                batch_id=sheet.batch_id,
+                file_id=sheet.file_id,
+                sheet_id=sheet.id,
+                issue_code="CROSS_DRAWING_NAME_CONFLICT",
+                severity="warning",
+                message=f"图号「{drawing_no}」对应多个图名：{' / '.join(names)}。",
+                suggestion="请核对同图号图纸是否为不同版本、不同分册或图名录入错误。",
+            )
+            by_code["CROSS_DRAWING_NAME_CONFLICT"] = by_code.get(
+                "CROSS_DRAWING_NAME_CONFLICT", 0
             ) + 1
 
 
@@ -113,8 +153,9 @@ def _check_version_skip(db: Session, sheets: list[DrawingSheet], by_code: dict[s
     """同图号下版本号集合出现跳号（如 A, C 缺 B；或 1, 3 缺 2）。"""
     by_drawing_no: dict[str, list[DrawingSheet]] = defaultdict(list)
     for sheet in sheets:
-        if sheet.drawing_no and sheet.version:
-            by_drawing_no[sheet.drawing_no.strip()].append(sheet)
+        drawing_no = _valid_drawing_no(sheet)
+        if drawing_no and sheet.version:
+            by_drawing_no[drawing_no].append(sheet)
     for drawing_no, group in by_drawing_no.items():
         versions = sorted({(s.version or "").strip().upper() for s in group if s.version})
         if len(versions) < 2:
@@ -130,6 +171,7 @@ def _check_version_skip(db: Session, sheets: list[DrawingSheet], by_code: dict[s
                 file_id=sheet.file_id,
                 sheet_id=sheet.id,
                 issue_code="CROSS_VERSION_SKIP",
+                severity="warning",
                 message=(
                     f"图号「{drawing_no}」存在版本 {', '.join(versions)}，"
                     f"疑似缺失中间版本 {', '.join(missing)}。"
@@ -162,9 +204,10 @@ def _check_discipline_prefix(
     db: Session, sheets: list[DrawingSheet], by_code: dict[str, int]
 ) -> None:
     for sheet in sheets:
-        if not sheet.drawing_no or not sheet.discipline:
+        drawing_no = _valid_drawing_no(sheet)
+        if not drawing_no or not sheet.discipline:
             continue
-        inferred = infer_discipline_from_drawing_no(sheet.drawing_no)
+        inferred = infer_discipline_from_drawing_no(drawing_no)
         if not inferred:
             continue
         if inferred != sheet.discipline.strip():
@@ -175,8 +218,9 @@ def _check_discipline_prefix(
                 file_id=sheet.file_id,
                 sheet_id=sheet.id,
                 issue_code="CROSS_DISCIPLINE_PREFIX_MISMATCH",
+                severity="warning",
                 message=(
-                    f"图号「{sheet.drawing_no}」前缀对应专业「{inferred}」，"
+                    f"图号「{drawing_no}」前缀对应专业「{inferred}」，"
                     f"但本图专业字段为「{sheet.discipline}」。"
                 ),
             )
@@ -191,8 +235,9 @@ def _check_date_inconsistent(
     """同 (drawing_no, version) 下若多个 issue_date 不一致，记 issue。"""
     groups: dict[tuple[str, str], list[DrawingSheet]] = defaultdict(list)
     for sheet in sheets:
-        if sheet.drawing_no and sheet.version and sheet.issue_date:
-            key = (sheet.drawing_no.strip(), (sheet.version or "").strip().upper())
+        drawing_no = _valid_drawing_no(sheet)
+        if drawing_no and sheet.version and sheet.issue_date:
+            key = (drawing_no, (sheet.version or "").strip().upper())
             groups[key].append(sheet)
     for (drawing_no, version), group in groups.items():
         distinct_dates = {s.issue_date for s in group if s.issue_date}
@@ -207,6 +252,7 @@ def _check_date_inconsistent(
                 file_id=sheet.file_id,
                 sheet_id=sheet.id,
                 issue_code="CROSS_ISSUE_DATE_INCONSISTENT",
+                severity="warning",
                 message=(
                     f"图号「{drawing_no}」版本「{version}」下存在不同出图日期：{dates_str}。"
                 ),
@@ -222,8 +268,9 @@ def _check_version_date_regress(
     """同 drawing_no 下字典序更大的版本如果 issue_date 反而更早，报警。"""
     by_drawing_no: dict[str, list[DrawingSheet]] = defaultdict(list)
     for sheet in sheets:
-        if sheet.drawing_no and sheet.version and sheet.issue_date:
-            by_drawing_no[sheet.drawing_no.strip()].append(sheet)
+        drawing_no = _valid_drawing_no(sheet)
+        if drawing_no and sheet.version and sheet.issue_date:
+            by_drawing_no[drawing_no].append(sheet)
     for drawing_no, group in by_drawing_no.items():
         if len(group) < 2:
             continue
@@ -242,6 +289,7 @@ def _check_version_date_regress(
                     file_id=sheet.file_id,
                     sheet_id=sheet.id,
                     issue_code="CROSS_VERSION_DATE_REGRESS",
+                    severity="warning",
                     message=(
                         f"图号「{drawing_no}」版本「{current_version}」出图日期 "
                         f"{current_date.isoformat()} 早于此前版本「{max_version_so_far}」的 "
@@ -254,3 +302,15 @@ def _check_version_date_regress(
             if current_date and (max_date_so_far is None or current_date > max_date_so_far):
                 max_date_so_far = current_date
                 max_version_so_far = current_version
+
+
+def _valid_drawing_no(sheet: DrawingSheet) -> str | None:
+    raw = (sheet.drawing_no or "").strip()
+    if not raw or is_blacklisted_drawing_no(raw):
+        return None
+    normalized = normalize_drawing_no(raw) or raw
+    if not (is_supported_drawing_no(normalized) or is_plausible_drawing_no(normalized)):
+        return None
+    if (sheet.trust_level or "").upper() == "D" or (sheet.confidence_score or 0) < 45:
+        return None
+    return normalized

@@ -12,12 +12,16 @@ from backend.schemas.pagination import PaginatedResponse
 from backend.services import audit_service
 from recognizer.rules.issue_rules import conflict_code, issue_template
 
+PERSISTENT_MACHINE_ISSUE_PREFIXES = ("CAD_TABLE_EXTRACT_", "CAD_BLOCK_STATS_")
+
 
 def clear_open_machine_issues(db: Session, sheet_id: int) -> None:
     db.execute(
         delete(DrawingIssue).where(
             DrawingIssue.sheet_id == sheet_id,
             DrawingIssue.status == "open",
+            DrawingIssue.issue_code.not_like("CAD_TABLE_EXTRACT_%"),
+            DrawingIssue.issue_code.not_like("CAD_BLOCK_STATS_%"),
         )
     )
 

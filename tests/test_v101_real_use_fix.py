@@ -25,7 +25,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.2.3-fast-import-stable"
+VERSION = "v1.4-fast-real-project-trial"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -103,7 +103,7 @@ def test_v101_health_version_and_portable_package_output():
     assert summary.integrity_ok is True
     assert package_dir.name == f"工程图纸智能台账识别系统-{VERSION}"
     assert VERSION in package_info
-    assert "包类型：Windows 本地便携正式稳定版" in package_info
+    assert "包类型：Windows 便携版 Trial" in package_info
     assert (package_dir / "app_data" / "backups" / ".gitkeep").is_file()
     assert (ROOT / "docs" / "V1_0_1_REAL_USE_FIX_REPORT.md").is_file()
 

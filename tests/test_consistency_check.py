@@ -94,6 +94,22 @@ def test_duplicate_drawing_no_creates_issue(client: TestClient):
     assert "CROSS_DRAWING_NO_DUPLICATE" in _cross_issue_codes(project_id)
 
 
+def test_same_drawing_no_different_name_creates_warning(client: TestClient):
+    project_id, batch_id, file_id = _create_project(client, "跨图-同号不同名")
+    _add_confirmed_sheet(
+        project_id, batch_id, file_id, drawing_no="建施-10", drawing_name="首层平面图"
+    )
+    _add_confirmed_sheet(
+        project_id, batch_id, file_id, drawing_no="建施-10", drawing_name="二层平面图"
+    )
+
+    resp = client.post(f"/api/projects/{project_id}/consistency-check")
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["by_code"].get("CROSS_DRAWING_NAME_CONFLICT", 0) >= 2
+    assert "CROSS_DRAWING_NAME_CONFLICT" in _cross_issue_codes(project_id)
+
+
 def test_version_skip_creates_issue(client: TestClient):
     project_id, batch_id, file_id = _create_project(client, "跨图-版本跳号")
     _add_confirmed_sheet(project_id, batch_id, file_id, drawing_no="建施-02", version="A")

@@ -18,6 +18,17 @@ ANONYMOUS_BLOCK_PREFIXES = ("*MODEL_SPACE", "*PAPER_SPACE")
 ANONYMOUS_BLOCK_CHARS = ("*U", "*X", "*T", "*D", "*A")
 MAX_ATTRIB_VALUES_PER_TAG = 10
 MAX_DISTINCT_BLOCKS = 500
+FRAME_BLOCK_KEYWORDS = (
+    "FRAME",
+    "BORDER",
+    "SHEET",
+    "PAPER",
+    "图框",
+    "外框",
+    "内框",
+    "边框",
+    "图纸框",
+)
 
 
 def _is_anonymous_block(name: str) -> bool:
@@ -29,6 +40,34 @@ def _is_anonymous_block(name: str) -> bool:
     if upper.startswith("*") and len(upper) >= 2 and upper[1] in ("U", "X", "T", "D", "A"):
         return True
     return False
+
+
+def _normalize_block_name(name: str) -> str:
+    return " ".join((name or "").strip().split())
+
+
+def _is_frame_block_name(name: str) -> bool:
+    if not name:
+        return False
+    upper = name.upper()
+    if any(keyword in upper or keyword in name for keyword in FRAME_BLOCK_KEYWORDS):
+        return True
+    normalized = upper.replace("-", "_").replace(" ", "_")
+    return any(
+        token in normalized
+        for token in (
+            "A0_FRAME",
+            "A1_FRAME",
+            "A2_FRAME",
+            "A3_FRAME",
+            "A4_FRAME",
+            "FRAME_A0",
+            "FRAME_A1",
+            "FRAME_A2",
+            "FRAME_A3",
+            "FRAME_A4",
+        )
+    )
 
 
 def aggregate_inserts(
@@ -57,12 +96,14 @@ def aggregate_inserts(
     groups: dict[tuple[str, str], dict] = {}
     for space in cad_json.get("spaces", []) or []:
         for insert in space.get("inserts", []) or []:
-            block_name = (insert.get("block_name") or "").strip()
+            block_name = _normalize_block_name(insert.get("block_name") or "")
             if not block_name:
                 continue
             if _is_anonymous_block(block_name):
                 continue
             if is_title_block_name(block_name):
+                continue
+            if _is_frame_block_name(block_name):
                 continue
             if block_name in excluded:
                 continue

@@ -20,6 +20,10 @@ class ExportCheckResult(BaseModel):
     empty_discipline_count: int = 0
     trust_level_d_count: int = 0
     duplicate_drawing_no_count: int
+    drawing_table_count: int = 0
+    low_confidence_table_count: int = 0
+    block_stats_sheet_count: int = 0
+    consistency_issue_count: int = 0
     warning_count: int = 0
     warnings: list[str]
 

@@ -2,11 +2,21 @@
 
 ## 当前版本
 
-v1.2.3-fast-import-stable
+v1.4-fast-real-project-trial
 
 ## 版本定位
 
-v1.2.3 导入体验稳定包整理版本。
+v1.4 真实项目整体验收试用版本。
+
+v1.4-fast-real-project-trial 是真实项目整体验收试用版本。本版本不新增功能，重点用真实或接近真实项目验证从导入、PDF 拆页、DWG 转 DXF、CAD pipeline、深度抽取、校核、Excel 导出、备份恢复到健康检查的完整流程，并沉淀 v1.4.1 修复清单。
+
+v1.3.3-fast-deep-extract-stable 是深度抽取稳定包整理版本。本版本不新增功能，重点回归 DXF 表格抽取、INSERT 块统计、跨图一致性校验、Excel 安全导出和核心流程，并生成 portable 稳定包。
+
+v1.3.2-fast-excel-safety 是深度抽取 Excel 导出安全收口版本。本版本重点确保图纸表格明细、图纸块统计、跨图一致性问题不污染正式图纸总台账。
+
+v1.3.1-fast-deep-extract-fix 是深度抽取真实问题快速修复版本。本版本不新增大功能，重点修复表格抽取误判、行列错位、标题栏字段污染、INSERT 块统计误报、跨图一致性误报、Excel 明细 sheet 结构不清楚，以及深度抽取异常影响 CAD pipeline 或 Excel 导出的问题。
+
+v1.3-fast-deep-extract-review 是深度抽取能力真实项目回归版本。本版本不新增大功能，重点验证 DXF 表格抽取、INSERT 块统计、跨图纸一致性校验、Excel 新增明细 sheet 是否适合真实项目使用。
 
 v1.2.3-fast-import-stable 是导入体验稳定包整理版本。本版本不新增功能，重点回归 PDF / DXF / DWG 导入统计、重复文件提示、不支持格式提示、导入后下一步建议、项目待办刷新和 portable 打包。
 
@@ -169,16 +179,16 @@ DWG 上传
 
 ## 便携包
 
-生成 v1.2.3 导入体验稳定包：
+生成 v1.4 真实项目试用包：
 
 ```bash
-python scripts/build_portable_package.py --version v1.2.3-fast-import-stable --clean
+python scripts/build_portable_package.py --version v1.4-fast-real-project-trial --clean
 ```
 
 输出目录：
 
 ```text
-release/工程图纸智能台账识别系统-v1.2.3-fast-import-stable/
+release/工程图纸智能台账识别系统-v1.4-fast-real-project-trial/
 ```
 
 ## 发布材料
@@ -188,9 +198,31 @@ release/工程图纸智能台账识别系统-v1.2.3-fast-import-stable/
 - `docs/V1_0_1_REAL_USE_FIX_REPORT.md`
 - `docs/FAST_RELEASE_REPORT_v1.0.2.md`
 - `docs/FAST_RELEASE_REPORT_v1.1.3.md`
+- `docs/FAST_RELEASE_REPORT_v1.3.3.md`
+- `docs/REAL_PROJECT_TRIAL_REPORT_v1.4.md`
 - `RELEASE_NOTES.md`
 
 ## 历史版本摘要
+
+### v1.4-fast-real-project-trial 真实项目整体验收试用
+
+v1.4-fast-real-project-trial 是真实项目整体验收试用版本。本版本不新增功能，重点验证真实项目从导入到导出的完整链路、深度抽取、校核效率、Excel 交付质量、备份恢复和健康检查，并形成 v1.4.1 修复清单。
+
+### v1.3.3-fast-deep-extract-stable 深度抽取稳定包整理
+
+v1.3.3-fast-deep-extract-stable 是深度抽取稳定包整理版本。本版本不新增功能，重点回归 DXF 表格抽取、INSERT 块统计、跨图一致性校验、Excel 安全导出和核心流程，并生成 portable 稳定包。
+
+### v1.3.2-fast-excel-safety Excel 深度抽取导出安全收口
+
+v1.3.2-fast-excel-safety 是深度抽取 Excel 导出安全收口版本。本版本重点确保图纸表格明细、图纸块统计、跨图一致性问题不污染正式图纸总台账。
+
+### v1.3.1-fast-deep-extract-fix 深度抽取真实问题快速修复
+
+v1.3.1-fast-deep-extract-fix 是深度抽取真实问题快速修复版本。本版本不新增大功能，重点修复表格抽取误判、行列错位、标题栏字段污染、INSERT 块统计误报、跨图一致性误报、Excel 明细 sheet 结构不清楚，以及深度抽取异常影响 CAD pipeline 或 Excel 导出的问题。
+
+### v1.3-fast-deep-extract-review 深度抽取能力真实项目回归
+
+v1.3-fast-deep-extract-review 是深度抽取能力真实项目回归版本。本版本不新增大功能，重点验证 DXF 表格抽取、INSERT 块统计、跨图纸一致性校验、Excel 新增明细 sheet 是否适合真实项目使用。
 
 ### v1.2.3-fast-import-stable 导入体验稳定包整理
 

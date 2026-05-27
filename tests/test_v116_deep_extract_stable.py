@@ -19,7 +19,7 @@ from backend.models.project import Project
 from scripts.build_portable_package import DEFAULT_VERSION, build_portable_package, package_name
 
 
-VERSION = "v1.2.3-fast-import-stable"
+VERSION = "v1.4-fast-real-project-trial"
 
 
 def _create_project_graph(name: str = "v1.1.6 深度抽取稳定") -> tuple[int, int, int]:
@@ -199,5 +199,5 @@ def test_v116_portable_package_info_uses_formal_stable_label(tmp_path: Path):
     assert summary.integrity_ok is True
     assert summary.package_dir == package_dir
     assert f"版本：{VERSION}" in package_info
-    assert "包类型：Windows 本地便携正式稳定版" in package_info
+    assert "包类型：Windows 便携版 Trial" in package_info
     assert (package_dir / "frontend" / "dist" / "index.html").is_file()
