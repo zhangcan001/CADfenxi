@@ -31,6 +31,10 @@ export function formatFileSize(value: number) {
 }
 
 export function isSupportedDrawingFile(name: string) {
+  return isSupportedDrawingFileName(name);
+}
+
+export function isSupportedDrawingFileName(name: string) {
   const lowerName = name.toLowerCase();
   return lowerName.endsWith(".pdf") || lowerName.endsWith(".dxf") || lowerName.endsWith(".dwg");
 }
@@ -206,7 +210,7 @@ export function dataHealthSuggestion(errorCode: string | null | undefined) {
 export function formatApiError(error: unknown, fallback: string) {
   const suggestionForCode = (errorCode: string) => {
     if (errorCode === "NETWORK_ERROR") {
-      return "请确认后端服务已启动，并保持本地窗口不要关闭。";
+      return "后端未连接或服务未启动，请先运行 start.bat。";
     }
     if (errorCode === "REQUEST_TIMEOUT") {
       return "请稍后重试；如果正在处理大图纸，建议减少单批数量。";
@@ -228,7 +232,7 @@ export function formatApiError(error: unknown, fallback: string) {
     if (maybe.errorCode) {
       const message =
         maybe.errorCode === "NETWORK_ERROR"
-          ? "后端未连接或服务未启动。"
+          ? "后端未连接或服务未启动，请先运行 start.bat。"
           : errorCodeMessage(maybe.errorCode, maybe.message || fallback);
       return [
         "操作失败",

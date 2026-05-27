@@ -2,11 +2,13 @@
 
 ## 当前版本
 
-v1.2.1-fast-integrity
+v1.2.2-fast-import-fix
 
 ## 版本定位
 
-v1.2.1 版本、接口、路由、打包一致性快速修复版本。
+v1.2.2 导入流程真实使用问题快速修复版本。
+
+v1.2.2-fast-import-fix 是导入流程真实使用问题快速修复版本。本版本不新增识别能力，重点修复 PDF / DXF / DWG 混合导入统计、重复文件提示、不支持格式提示、DWG 转换工具提示和导入后的下一步建议。
 
 v1.2.1-fast-integrity 是版本、接口、路由、打包一致性快速修复版本。本版本不新增功能，重点修复 v1.2-fast-import 后可能存在的版本号不一致、router 未挂载、README 与实际能力不一致、portable 打包版本不一致等问题。
 
@@ -165,16 +167,16 @@ DWG 上传
 
 ## 便携包
 
-生成 v1.2.1 一致性快速修复包：
+生成 v1.2.2 导入流程快速修复包：
 
 ```bash
-python scripts/build_portable_package.py --version v1.2.1-fast-integrity --clean
+python scripts/build_portable_package.py --version v1.2.2-fast-import-fix --clean
 ```
 
 输出目录：
 
 ```text
-release/工程图纸智能台账识别系统-v1.2.1-fast-integrity/
+release/工程图纸智能台账识别系统-v1.2.2-fast-import-fix/
 ```
 
 ## 发布材料
@@ -187,6 +189,10 @@ release/工程图纸智能台账识别系统-v1.2.1-fast-integrity/
 - `RELEASE_NOTES.md`
 
 ## 历史版本摘要
+
+### v1.2.2-fast-import-fix 导入流程真实使用问题快速修复
+
+v1.2.2-fast-import-fix 是导入流程真实使用问题快速修复版本。本版本不新增识别能力，重点修复 PDF / DXF / DWG 混合导入统计、重复文件提示、不支持格式提示、DWG 转换工具提示和导入后的下一步建议。
 
 ### v1.2.1-fast-integrity 版本、接口、路由、打包一致性快速修复
 

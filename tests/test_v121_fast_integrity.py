@@ -21,7 +21,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_v11_fast_ux import export_excel
 
 
-VERSION = "v1.2.1-fast-integrity"
+VERSION = "v1.2.2-fast-import-fix"
 
 
 def test_v121_version_is_unified_across_backend_frontend_and_package_script():
@@ -82,7 +82,7 @@ def test_v121_mixed_import_summary_duplicate_unsupported_next_actions_and_workbe
     assert data["file_type_counts"] == {"pdf": 2, "dxf": 1, "dwg": 1, "unsupported": 1}
     assert any(item["status"] == "duplicate" and item["warning"] == "duplicate_file" for item in data["items"])
     assert any(item["status"] == "unsupported" and item["error_code"] == "UNSUPPORTED_FILE_TYPE" for item in data["items"])
-    assert {"split_pdf", "convert_dwg", "run_cad_pipeline", "generate_cad_preview"}.issubset(data["next_actions"])
+    assert data["next_actions"] == ["split_pdf", "convert_dwg", "run_cad_pipeline"]
     assert summary.status_code == 200
     assert summary.json()["drawing_file_count"] == 5
     assert summary.json()["last_import_at"] is not None

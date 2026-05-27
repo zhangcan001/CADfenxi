@@ -16,7 +16,7 @@ from backend.models.project import Project
 from scripts.build_portable_package import DEFAULT_VERSION
 
 
-VERSION = "v1.2.1-fast-integrity"
+VERSION = "v1.2.2-fast-import-fix"
 ROOT = Path(__file__).resolve().parents[1]
 
 

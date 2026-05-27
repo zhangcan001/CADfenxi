@@ -24,7 +24,7 @@ from test_recognition_raw import _wait_for_ocr_job
 from test_v11_fast_ux import add_manual_sheet, export_excel
 
 
-VERSION = "v1.2.1-fast-integrity"
+VERSION = "v1.2.2-fast-import-fix"
 
 
 def test_v111_health_version_and_package_default():

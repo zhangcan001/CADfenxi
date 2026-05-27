@@ -36,3 +36,4 @@ class ImportBatchRead(BaseModel):
     file_type_counts: dict[str, int] = Field(default_factory=dict)
     items: list[ImportItemRead] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

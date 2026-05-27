@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from backend.models.drawing_file import DrawingFile
+from backend.models.converter_setting import ConverterSetting
 from backend.models.import_batch import ImportBatch
 from backend.models.project import Project
 from backend.schemas.drawing_file import DrawingFileRead, ImportedFileRead
@@ -41,6 +42,7 @@ def create_import_batch(
     import_items: list[ImportItemRead] = []
     file_type_counts = empty_file_type_counts()
     imported_type_counts = empty_file_type_counts()
+    has_active_converter = active_converter_exists(db)
 
     try:
         batch = ImportBatch(
@@ -171,7 +173,8 @@ def create_import_batch(
             import_items=import_items,
             total_selected=len(files),
             file_type_counts=file_type_counts,
-            next_actions=next_actions_for_counts(imported_type_counts),
+            next_actions=next_actions_for_counts(imported_type_counts, has_active_converter),
+            warnings=import_warnings(import_items, imported_type_counts, has_active_converter),
         )
     except HTTPException:
         db.rollback()
@@ -195,7 +198,16 @@ def get_import_batch(db: Session, batch_id: int) -> ImportBatchRead:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="导入批次不存在",
         )
-    return batch_to_read(batch, [(file, []) for file in batch.files])
+    imported_files = [(file, []) for file in batch.files]
+    counts = counts_from_files([file for file, _ in imported_files])
+    has_active_converter = active_converter_exists(db)
+    return batch_to_read(
+        batch,
+        imported_files,
+        file_type_counts=counts,
+        next_actions=next_actions_for_counts(counts, has_active_converter),
+        warnings=import_warnings([], counts, has_active_converter),
+    )
 
 
 def list_project_files(db: Session, project_id: int) -> list[DrawingFileRead]:
@@ -262,17 +274,49 @@ def http_error_message(exc: HTTPException, fallback: str) -> str:
     return fallback
 
 
-def next_actions_for_counts(file_type_counts: dict[str, int]) -> list[str]:
+def active_converter_exists(db: Session) -> bool:
+    return bool(
+        db.scalar(
+            select(ConverterSetting.id)
+            .where(ConverterSetting.is_enabled.is_(True))
+            .order_by(ConverterSetting.id.desc())
+            .limit(1)
+        )
+    )
+
+
+def next_actions_for_counts(file_type_counts: dict[str, int], has_active_converter: bool = True) -> list[str]:
     actions: list[str] = []
     if file_type_counts.get("pdf", 0) > 0:
         actions.append("split_pdf")
     if file_type_counts.get("dwg", 0) > 0:
-        actions.append("convert_dwg")
+        if has_active_converter:
+            actions.append("convert_dwg")
+        else:
+            actions.append("configure_dwg_converter")
     if file_type_counts.get("dxf", 0) > 0 or file_type_counts.get("dwg", 0) > 0:
-        actions.append("run_cad_pipeline")
-    if file_type_counts.get("dxf", 0) > 0:
+        if file_type_counts.get("dxf", 0) > 0 or has_active_converter:
+            actions.append("run_cad_pipeline")
+    if (
+        file_type_counts.get("dxf", 0) > 0
+        and file_type_counts.get("pdf", 0) == 0
+        and file_type_counts.get("dwg", 0) == 0
+    ):
         actions.append("generate_cad_preview")
     return actions
+
+
+def import_warnings(
+    items: list[ImportItemRead],
+    file_type_counts: dict[str, int],
+    has_active_converter: bool,
+) -> list[str]:
+    warnings: list[str] = []
+    if any(item.status == "unsupported" for item in items):
+        warnings.append("unsupported_files_rejected")
+    if file_type_counts.get("dwg", 0) > 0 and not has_active_converter:
+        warnings.append("dwg_converter_not_configured")
+    return warnings
 
 
 def batch_to_read(
@@ -282,6 +326,7 @@ def batch_to_read(
     total_selected: int | None = None,
     file_type_counts: dict[str, int] | None = None,
     next_actions: list[str] | None = None,
+    warnings: list[str] | None = None,
 ) -> ImportBatchRead:
     counts = file_type_counts or counts_from_files([file for file, _ in imported_files])
     items = import_items or items_from_files([file for file, _ in imported_files])
@@ -325,6 +370,7 @@ def batch_to_read(
             "file_type_counts": counts,
             "items": items,
             "next_actions": next_actions if next_actions is not None else next_actions_for_counts(counts),
+            "warnings": warnings or import_warnings(items, counts, has_active_converter=True),
         }
     )
 

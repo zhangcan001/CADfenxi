@@ -72,6 +72,7 @@ export type ImportBatch = {
   file_type_counts: Record<string, number>;
   items: ImportItem[];
   next_actions: string[];
+  warnings: string[];
 };
 
 export function uploadProjectDrawingFiles(

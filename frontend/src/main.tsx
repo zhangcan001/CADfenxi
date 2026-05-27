@@ -155,6 +155,7 @@ import {
   drawingFileLabel,
   dataHealthStatusLabel,
   dataHealthSuggestion,
+  isSupportedDrawingFileName,
   errorCodeMessage,
   fieldNameLabel,
   fieldSourceDescription,
@@ -165,7 +166,6 @@ import {
   formatFileSize,
   formatPoint,
   isCadReadyFile,
-  isSupportedDrawingFile,
   pipelineErrorSuggestion,
   pipelineFailureTotal,
   pipelineNextSuggestion,
@@ -343,6 +343,7 @@ const UPLOAD_MAX_BYTES = 200 * 1024 * 1024;
 type DrawingFileKind = "pdf" | "dxf" | "dwg" | "unsupported";
 
 type RejectedSelectedFile = {
+  file: File;
   name: string;
   size: number;
   reason: string;
@@ -403,34 +404,39 @@ function importItemStatusLabel(status: string) {
 }
 
 function importNextSuggestion(result: ImportBatch, hasActiveConverter: boolean) {
-  const hasPdf = result.files.some((file) => file.source_format === "pdf");
-  const hasDxf = result.files.some((file) => file.source_format === "dxf");
-  const hasDwg = result.files.some((file) => file.source_format === "dwg");
+  const actions = result.next_actions ?? [];
+  const hasPdf = actions.includes("split_pdf");
+  const hasDxf = actions.includes("run_cad_pipeline");
+  const hasDwg = actions.includes("convert_dwg") || actions.includes("configure_dwg_converter");
+  const hasUnsupported = result.unsupported_count > 0 || result.warnings.includes("unsupported_files_rejected");
   if (!hasPdf && !hasDxf && !hasDwg) {
     return "本次没有可继续处理的新图纸，可以返回项目首页。";
   }
-  if (hasPdf && hasDxf && hasDwg) {
-    return "已导入多种图纸文件。建议按顺序处理：PDF 拆页 → DWG 转 DXF → CAD pipeline → 校核 → 导出 Excel。";
+  const unsupportedTip = hasUnsupported ? "部分文件未导入，请先查看不支持格式列表。" : "";
+  if (actions.includes("configure_dwg_converter")) {
+    return `${unsupportedTip} 已导入 DWG 文件。系统不直接解析 DWG，请先配置外部 DWG 转 DXF 工具，再继续 CAD pipeline。`.trim();
   }
-  if (hasPdf && hasDxf) {
-    return "已导入 PDF 和 DXF 图纸。建议先处理 PDF 拆页，再执行 CAD pipeline 处理 DXF。";
+  if (hasPdf && actions.includes("convert_dwg") && hasDxf) {
+    return `${unsupportedTip} 已导入多种图纸文件。建议按顺序处理：PDF 拆页 → DWG 转 DXF → CAD pipeline → 校核 → 导出 Excel。`.trim();
   }
-  if (hasDxf && hasDwg) {
-    return "已导入 DXF 和 DWG 图纸。建议先处理 DWG 转 DXF，再执行 CAD pipeline。";
+  if (hasPdf && hasDxf && !actions.includes("convert_dwg")) {
+    return `${unsupportedTip} 已导入 PDF 和 DXF 图纸。建议先处理 PDF 拆页，再执行 CAD pipeline。`.trim();
   }
-  if (hasPdf && hasDwg) {
-    return "已导入 PDF 和 DWG 图纸。建议先生成 PDF 图纸页，再处理 DWG 转 DXF。";
+  if (!hasPdf && actions.includes("convert_dwg") && hasDxf) {
+    return `${unsupportedTip} 已导入 DXF 和 DWG 图纸。建议先处理 DWG 转 DXF，再执行 CAD pipeline。`.trim();
+  }
+  if (hasPdf && actions.includes("convert_dwg")) {
+    return `${unsupportedTip} 已导入 PDF 和 DWG 图纸。建议先生成 PDF 图纸页，再处理 DWG 转 DXF。`.trim();
   }
   if (hasPdf) {
-    return "已导入 PDF 图纸。下一步建议生成图纸页预览。";
+    return `${unsupportedTip} 已导入 PDF 图纸。下一步建议生成 PDF 图纸页。`.trim();
   }
   if (hasDxf) {
-    return "已导入 DXF 图纸。下一步建议执行 CAD pipeline，完成解析、候选值生成和字段融合。";
+    return `${unsupportedTip} 已导入 DXF 图纸。下一步建议执行 CAD pipeline，完成解析、候选值生成和字段融合。`.trim();
   }
-  if (hasDwg && !hasActiveConverter) {
-    return "已导入 DWG 文件。系统不直接解析 DWG，请先配置外部 DWG 转 DXF 工具。";
-  }
-  return "已导入 DWG 文件。下一步建议执行 DWG 转 DXF，然后进入 DXF 识别流程。";
+  return hasActiveConverter
+    ? `${unsupportedTip} 已导入 DWG 文件。下一步建议执行 DWG 转 DXF，然后进入 DXF 识别流程。`.trim()
+    : `${unsupportedTip} 已导入 DWG 文件。系统不直接解析 DWG，请先配置外部 DWG 转 DXF 工具。`.trim();
 }
 
 function App() {
@@ -453,6 +459,8 @@ function App() {
   const [batchName, setBatchName] = React.useState("");
   const [remark, setRemark] = React.useState("");
   const [importError, setImportError] = React.useState("");
+  const [importStatus, setImportStatus] = React.useState<"idle" | "uploading" | "success" | "partial" | "failed">("idle");
+  const [importRefreshWarning, setImportRefreshWarning] = React.useState("");
   const [importResult, setImportResult] = React.useState<ImportBatch | null>(null);
   const [projectFiles, setProjectFiles] = React.useState<DrawingFile[]>([]);
   const [sheets, setSheets] = React.useState<DrawingSheet[]>([]);
@@ -698,22 +706,41 @@ function App() {
       .catch(() => setProjectError("项目打开失败"));
   };
 
-  const loadProjectFiles = (projectId: number) => {
-    listProjectFiles(projectId)
-      .then((files) => setProjectFiles(files))
-      .catch(() => setProjectFiles([]));
+  const loadProjectFiles = (projectId: number, rethrow = false) => {
+    return listProjectFiles(projectId)
+      .then((files) => {
+        setProjectFiles(files);
+        return files;
+      })
+      .catch(() => {
+        setProjectFiles([]);
+        if (rethrow) {
+          throw new Error("PROJECT_FILES_REFRESH_FAILED");
+        }
+        return [];
+      });
   };
 
-  const loadProjectSheets = (projectId: number, query: SheetQuery = sheetQuery) => {
-    listProjectSheets(projectId, query)
+  const loadProjectSheets = (projectId: number, query: SheetQuery = sheetQuery, rethrow = false) => {
+    return listProjectSheets(projectId, query)
       .then((data) => {
         setSheetPage(data);
         setSheets(data.items);
         setSelectedSheetIds((current) =>
           current.filter((id) => data.items.some((sheet) => sheet.id === id))
         );
+        return data;
       })
-      .catch(() => setSheets([]));
+      .catch(() => {
+        setSheets([]);
+        if (rethrow) {
+          throw new Error("PROJECT_SHEETS_REFRESH_FAILED");
+        }
+        return null;
+      });
+  };
+
+  const refreshProjectRelatedLists = (projectId: number) => {
     listProjectIssues(projectId, { page: 1, page_size: 20, status: "open" })
       .then((data) => {
         setIssuePage(data);
@@ -723,7 +750,6 @@ function App() {
     listExports(projectId)
       .then(setExportRecords)
       .catch(() => setExportRecords([]));
-    loadWorkbenchSummary(projectId);
     loadConversionRuns(projectId);
   };
 
@@ -753,24 +779,44 @@ function App() {
       .catch(() => setBackupRecords([]));
   };
 
-  const loadWorkbenchSummary = (projectId: number) => {
-    getProjectWorkbenchSummary(projectId)
-      .then(setWorkbenchSummary)
-      .catch(() => setWorkbenchSummary(null));
+  const loadWorkbenchSummary = (projectId: number, rethrow = false) => {
+    return getProjectWorkbenchSummary(projectId)
+      .then((summary) => {
+        setWorkbenchSummary(summary);
+        return summary;
+      })
+      .catch(() => {
+        setWorkbenchSummary(null);
+        if (rethrow) {
+          throw new Error("WORKBENCH_SUMMARY_REFRESH_FAILED");
+        }
+        return null;
+      });
   };
 
   const refreshProjectAfterImport = (projectId: number) => {
-    loadProjectFiles(projectId);
-    loadProjectSheets(projectId);
-    loadWorkbenchSummary(projectId);
-    loadConversionRuns(projectId);
-    getProject(projectId)
-      .then((project) => {
+    setImportRefreshWarning("");
+    const refreshes = [
+      loadProjectFiles(projectId, true),
+      loadProjectSheets(projectId, sheetQuery, true),
+      loadWorkbenchSummary(projectId, true),
+      getProject(projectId).then((project) => {
         setSelectedProject(project);
         setProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
+        return project;
+      }),
+      listProjects().then((data) => {
+        setProjects(data);
+        return data;
       })
-      .catch(() => undefined);
-    refreshProjects();
+    ];
+    Promise.allSettled(refreshes).then((results) => {
+      if (results.some((result) => result.status === "rejected")) {
+        setImportRefreshWarning("导入已完成，但项目摘要刷新失败，可手动刷新页面。");
+      }
+    });
+    refreshProjectRelatedLists(projectId);
+    loadConversionRuns(projectId);
   };
 
   const scrollToConverterSettings = () => {
@@ -891,24 +937,20 @@ function App() {
   const handleSelectFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     const invalidFiles = files
-      .filter((file) => !isSupportedDrawingFile(file.name))
+      .filter((file) => !isSupportedDrawingFileName(file.name))
       .map((file) => ({
+        file,
         name: file.name,
         size: file.size,
         reason: "当前文件格式不支持，请导入 PDF、DXF 或 DWG 文件。"
       }));
-    const drawingFiles = files.filter((file) => isSupportedDrawingFile(file.name));
+    const drawingFiles = files.filter((file) => isSupportedDrawingFileName(file.name));
     setSelectedFiles(drawingFiles);
     setSelectedRejectedFiles(invalidFiles);
     setImportResult(null);
-    setImportError(
-      invalidFiles.length > 0
-        ? [
-            "以下文件格式暂不支持，请移除后继续。",
-            ...invalidFiles.map((file) => `${file.name}：${file.reason}`)
-          ].join("\n")
-        : ""
-    );
+    setImportStatus("idle");
+    setImportRefreshWarning("");
+    setImportError("");
   };
 
   const handleUpload = (event: React.FormEvent<HTMLFormElement>) => {
@@ -916,14 +958,8 @@ function App() {
     if (!selectedProject) {
       return;
     }
-    if (selectedRejectedFiles.length > 0) {
-      setImportError([
-        "以下文件格式暂不支持，请移除后继续。",
-        ...selectedRejectedFiles.map((file) => `${file.name}：${file.reason}`)
-      ].join("\n"));
-      return;
-    }
-    const oversizedFiles = selectedFiles.filter((file) => file.size > UPLOAD_MAX_BYTES);
+    const selectedAllFiles = [...selectedFiles, ...selectedRejectedFiles.map((item) => item.file)];
+    const oversizedFiles = selectedAllFiles.filter((file) => file.size > UPLOAD_MAX_BYTES);
     if (oversizedFiles.length > 0) {
       setImportError([
         "以下文件超过大小限制，请移除后继续。",
@@ -931,7 +967,7 @@ function App() {
       ].join("\n"));
       return;
     }
-    if (selectedFiles.length === 0) {
+    if (selectedAllFiles.length === 0) {
       setImportError([
         "操作失败",
         "错误码：NO_DRAWING_FILE_SELECTED",
@@ -941,13 +977,17 @@ function App() {
       return;
     }
 
+    setImportStatus("uploading");
+    setImportRefreshWarning("");
+    setImportError("");
     uploadProjectPdfs(selectedProject.id, {
       batchName,
       remark,
-      files: selectedFiles
+      files: selectedAllFiles
     })
       .then((result) => {
         setImportResult(result);
+        setImportStatus(result.failed_count > 0 || result.duplicate_count > 0 || result.unsupported_count > 0 ? "partial" : "success");
         setImportError("");
         setSelectedFiles([]);
         setSelectedRejectedFiles([]);
@@ -955,7 +995,10 @@ function App() {
         setRemark("");
         refreshProjectAfterImport(selectedProject.id);
       })
-      .catch((error) => setImportError(formatApiError(error, "导入失败，请确认文件格式和本地服务状态")));
+      .catch((error) => {
+        setImportStatus("failed");
+        setImportError(formatApiError(error, "导入失败，请确认文件格式和本地服务状态"));
+      });
   };
 
   const handleSplitBatch = (batchId: number) => {
@@ -1958,6 +2001,10 @@ function App() {
   }, [reviewSheet, reviewFields, reviewNote, sheets]);
 
   const latestBatchId = importResult?.id ?? projectFiles[0]?.batch_id;
+  const selectedAllFiles = React.useMemo(
+    () => [...selectedFiles, ...selectedRejectedFiles.map((item) => item.file)],
+    [selectedFiles, selectedRejectedFiles]
+  );
   const selectedFileTypeCounts = selectedFiles.reduce(
     (counts, file) => {
       counts[drawingFileKind(file.name)] += 1;
@@ -1965,10 +2012,8 @@ function App() {
     },
     { pdf: 0, dxf: 0, dwg: 0, unsupported: selectedRejectedFiles.length } as Record<DrawingFileKind, number>
   );
-  const selectedTotalSize =
-    selectedFiles.reduce((total, file) => total + file.size, 0) +
-    selectedRejectedFiles.reduce((total, file) => total + file.size, 0);
-  const selectedOversizedFiles = selectedFiles.filter((file) => file.size > UPLOAD_MAX_BYTES);
+  const selectedTotalSize = selectedAllFiles.reduce((total, file) => total + file.size, 0);
+  const selectedOversizedFiles = selectedAllFiles.filter((file) => file.size > UPLOAD_MAX_BYTES);
   const selectedDuplicateNames = duplicateSelectedNames(selectedFiles);
   const existingDuplicateNames = existingProjectFileMatches(selectedFiles, projectFiles);
   const hasActiveConverter = converterSettings.some((item) => item.is_enabled);
@@ -2196,11 +2241,12 @@ function App() {
   const duplicateImportItems = importItems.filter((item) => item.status === "duplicate" || item.warning === "duplicate_file");
   const unsupportedImportItems = importItems.filter((item) => item.status === "unsupported");
   const failedImportItems = importItems.filter((item) => item.status === "failed");
-  const importHasPdf = importResult?.files.some((file) => file.source_format === "pdf") ?? false;
-  const importHasDxf = importResult?.files.some((file) => file.source_format === "dxf") ?? false;
-  const importHasDwg = importResult?.files.some((file) => file.source_format === "dwg") ?? false;
-  const importCanRunCadPipeline = Boolean(importResult && (importHasDxf || (importHasDwg && hasActiveConverter)));
-  const importCanGenerateCadPreview = Boolean(importResult && importHasDxf);
+  const importActions = importResult?.next_actions ?? [];
+  const importCanRunCadPipeline = Boolean(importResult && importActions.includes("run_cad_pipeline"));
+  const importCanGenerateCadPreview = Boolean(importResult && importActions.includes("generate_cad_preview"));
+  const importNeedsDwgConverter = Boolean(importResult && importActions.includes("configure_dwg_converter"));
+  const importCanConvertDwg = Boolean(importResult && importActions.includes("convert_dwg"));
+  const importCanSplitPdf = Boolean(importResult && importActions.includes("split_pdf"));
   const projectNotice = (() => {
     if (projectFiles.length === 0 && sheetPage.total === 0) {
       return "当前项目还没有导入图纸。";
@@ -3152,9 +3198,9 @@ function App() {
                     图纸文件
                     <input
                       type="file"
-                      accept="application/pdf,.pdf,.dxf,.dwg"
                       multiple
                       onChange={handleSelectFiles}
+                      disabled={importStatus === "uploading"}
                     />
                   </label>
                   {selectedFiles.length > 0 || selectedRejectedFiles.length > 0 ? (
@@ -3185,7 +3231,7 @@ function App() {
                       ) : null}
                       {selectedRejectedFiles.length > 0 ? (
                         <div className="import-warning">
-                          <strong>以下文件格式暂不支持，请移除后继续。</strong>
+                          <strong>以下文件格式暂不支持，导入结果会列为不支持且不会进入图纸识别流程。</strong>
                           {selectedRejectedFiles.map((file) => (
                             <span key={`${file.name}-${file.size}`}>{file.name}：{file.reason}</span>
                           ))}
@@ -3202,10 +3248,10 @@ function App() {
                       {selectedDuplicateNames.length > 0 || existingDuplicateNames.length > 0 ? (
                         <div className="import-note">
                           {selectedDuplicateNames.length > 0 ? (
-                            <span>本次选择中有重名文件：{selectedDuplicateNames.join("、")}。</span>
+                            <span>本次选择中有重名文件：{selectedDuplicateNames.join("、")}；后端会按文件内容判断重复，不影响其他文件导入。</span>
                           ) : null}
                           {existingDuplicateNames.length > 0 ? (
-                            <span>项目中已有同名文件：{existingDuplicateNames.join("、")}，后端仍会按文件内容判断是否重复。</span>
+                            <span>项目中已有同名文件：{existingDuplicateNames.join("、")}；重复文件会单独提示，不作为导入失败。</span>
                           ) : null}
                         </div>
                       ) : null}
@@ -3217,8 +3263,14 @@ function App() {
                     />
                   )}
                   <ErrorNotice message={importError} />
-                  <button type="submit" disabled={selectedRejectedFiles.length > 0 || selectedOversizedFiles.length > 0}>
-                    开始导入
+                  {importStatus === "uploading" ? (
+                    <div className="import-note">
+                      <strong>正在上传并创建导入批次...</strong>
+                      <span>请保持本地服务窗口不要关闭。</span>
+                    </div>
+                  ) : null}
+                  <button type="submit" disabled={importStatus === "uploading" || selectedOversizedFiles.length > 0}>
+                    {importStatus === "uploading" ? "导入中..." : "开始导入"}
                   </button>
                 </form>
               ) : null}
@@ -3227,7 +3279,13 @@ function App() {
                 <div className="import-result">
                   <div className="section-title">
                     <h3>导入结果</h3>
-                    <span>本次选择 {importResult.total_selected} 个文件</span>
+                    <span>
+                      {importStatus === "partial"
+                        ? "部分成功"
+                        : importStatus === "success"
+                          ? "上传成功"
+                          : "本次选择"} {importResult.total_selected} 个文件
+                    </span>
                   </div>
                   <p>批次名称：{importResult.batch_name}</p>
                   <div className="summary-grid compact import-summary-grid">
@@ -3236,10 +3294,16 @@ function App() {
                     <Metric label="PDF" value={importResult.file_type_counts.pdf ?? 0} />
                     <Metric label="DXF" value={importResult.file_type_counts.dxf ?? 0} />
                     <Metric label="DWG" value={importResult.file_type_counts.dwg ?? 0} />
+                    <Metric label="其他拒绝" value={importResult.file_type_counts.unsupported ?? 0} />
                     <Metric label="重复文件" value={importResult.duplicate_count} />
                     <Metric label="不支持格式" value={importResult.unsupported_count} />
                     <Metric label="失败数量" value={importResult.failed_count} />
                   </div>
+                  {importRefreshWarning ? (
+                    <div className="import-warning">
+                      <span>{importRefreshWarning}</span>
+                    </div>
+                  ) : null}
                   {importItems.length > 0 ? (
                     <div className="file-list import-items-list">
                       {importItems.map((item, index) => (
@@ -3255,9 +3319,9 @@ function App() {
                   ) : null}
                   {duplicateImportItems.length > 0 ? (
                     <div className="import-note">
-                      <strong>以下文件疑似已导入过，本次已跳过或标记为重复：</strong>
+                      <strong>以下文件疑似已导入过，重复文件不是错误，不影响其他文件导入：</strong>
                       {duplicateImportItems.map((item) => (
-                        <span key={`${item.file_name}-${item.status}`}>{item.file_name}</span>
+                        <span key={`${item.file_name}-${item.status}`}>{item.file_name}：{item.message || "该文件疑似已导入过。"}</span>
                       ))}
                     </div>
                   ) : null}
@@ -3280,22 +3344,22 @@ function App() {
                   <div className="import-next-step">
                     <strong>{importNextSuggestion(importResult, hasActiveConverter)}</strong>
                     <div className="inline-actions">
-                      {importHasPdf ? (
+                      {importCanSplitPdf ? (
                         <button type="button" onClick={() => handleSplitBatch(importResult.id)}>
                           生成 PDF 图纸页
                         </button>
                       ) : null}
-                      {importHasDwg && !hasActiveConverter ? (
+                      {importNeedsDwgConverter ? (
                         <button type="button" className="primary-button" onClick={scrollToConverterSettings}>
                           配置转换工具
                         </button>
                       ) : null}
-                      {importHasDwg && !hasActiveConverter ? (
+                      {importNeedsDwgConverter ? (
                         <button type="button" onClick={scrollToConverterSettings}>
                           查看 DWG 使用说明
                         </button>
                       ) : null}
-                      {importHasDwg && hasActiveConverter ? (
+                      {importCanConvertDwg ? (
                         <button type="button" onClick={() => handleConvertDwgBatch(importResult.id)}>
                           执行 DWG 转 DXF
                         </button>

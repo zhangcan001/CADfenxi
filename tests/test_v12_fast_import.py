@@ -18,7 +18,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_v11_fast_ux import export_excel
 
 
-VERSION = "v1.2.1-fast-integrity"
+VERSION = "v1.2.2-fast-import-fix"
 
 
 @pytest.mark.parametrize(
@@ -97,7 +97,7 @@ def test_v12_mixed_import_duplicate_unsupported_and_workbench_refresh():
     assert data["file_type_counts"] == {"pdf": 2, "dxf": 1, "dwg": 1, "unsupported": 1}
     assert any(item["status"] == "duplicate" and item["warning"] == "duplicate_file" for item in data["items"])
     assert any(item["status"] == "unsupported" and item["error_code"] == "UNSUPPORTED_FILE_TYPE" for item in data["items"])
-    assert {"split_pdf", "convert_dwg", "run_cad_pipeline", "generate_cad_preview"}.issubset(set(data["next_actions"]))
+    assert data["next_actions"] == ["split_pdf", "convert_dwg", "run_cad_pipeline"]
     assert summary.json()["drawing_file_count"] == 5
     assert summary.json()["last_import_at"] is not None
     assert project.json()["stats"]["file_count"] == 5
