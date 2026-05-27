@@ -1,7 +1,7 @@
 {
   "name": "drawing-ledger-ai-frontend",
   "private": true,
-  "version": "v1.2-fast-import",
+  "version": "v1.2.1-fast-integrity",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

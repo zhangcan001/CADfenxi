@@ -9,7 +9,7 @@ from test_full_flow_stability_v055 import make_pdf_bytes, title_block_dxf
 from test_project_backup_restore import backup_project, create_project, upload_files
 
 
-VERSION = "v1.2-fast-import"
+VERSION = "v1.2.1-fast-integrity"
 ROOT = Path(__file__).resolve().parents[1]
 
 

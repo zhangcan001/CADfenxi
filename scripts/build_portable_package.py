@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-DEFAULT_VERSION = "v1.2-fast-import"
+DEFAULT_VERSION = "v1.2.1-fast-integrity"
 PACKAGE_PREFIX = "工程图纸智能台账识别系统"
 
 
@@ -138,6 +138,7 @@ def write_package_info(package_dir: Path, version: str, tests_status: str) -> Pa
         "v1.1.4-table-extract",
         "v1.1.5-deep-extract",
         "v1.1.6-deep-extract-stable",
+        "v1.2.1-fast-integrity",
         "v1.2-fast-import",
     }:
         package_type = "Windows 本地便携正式稳定版"
