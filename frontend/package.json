@@ -1,7 +1,7 @@
 {
   "name": "drawing-ledger-ai-frontend",
   "private": true,
-  "version": "v1.1.5-deep-extract",
+  "version": "v1.1.6-deep-extract-stable",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

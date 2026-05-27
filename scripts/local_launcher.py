@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-APP_VERSION = "v1.1.5-deep-extract"
+APP_VERSION = "v1.1.6-deep-extract-stable"
 DEFAULT_PORT = 8000
 HEALTH_TIMEOUT_SECONDS = 45
 MIN_PYTHON_VERSION = (3, 11)

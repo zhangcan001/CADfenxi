@@ -2,11 +2,17 @@
 
 ## 当前版本
 
-v1.1.3-fast-stable
+v1.1.6-deep-extract-stable
 
 ## 版本定位
 
-v1.1 体验优化稳定包整理版本。
+v1.1 深度抽取稳定收口版本。
+
+v1.1.6-deep-extract-stable 是深度抽取能力稳定收口版本。本版本不新增大功能，重点验证并收口 DXF 表格抽取、INSERT 块统计、跨图一致性校验、Excel 新增明细 sheet、前端内嵌表格展示和 portable 打包。
+
+v1.1.5-deep-extract 在 v1.1.4 表格抽取基础上完成 INSERT 块统计、跨图校验、图纸内嵌表格展示和标题栏自适应。
+
+v1.1.4-table-extract 新增 DXF 表格抽取能力，支持 ACAD_TABLE 与文字坐标聚类，并在 Excel 导出中增加图纸表格明细。
 
 v1.1.3-fast-stable 是 v1.1 体验优化稳定包整理版本。本版本不新增功能，重点回归首页快捷工作台、最近项目、项目待办摘要、下一步建议、快捷入口和核心业务流程，并生成 portable 稳定包。
 
@@ -33,6 +39,10 @@ v1.1.1-fast-fix 是快捷工作台真实使用问题快速修复版本。本版�
 - DXF 图纸页创建
 - DXF TEXT / MTEXT / INSERT / ATTRIB / LAYER 解析
 - DXF CAD JSON 保存
+- DXF 表格抽取
+- 图纸内嵌表格展示
+- INSERT 块统计
+- 跨图纸一致性校验
 - DXF 候选值生成
 - DXF 字段融合
 - 外部 DWG 转 DXF 工具配置
@@ -53,6 +63,8 @@ v1.1.1-fast-fix 是快捷工作台真实使用问题快速修复版本。本版�
 - 图纸总台账
 - 问题清单
 - 专业汇总
+- 图纸表格明细
+- 图纸块统计
 - 校核状态汇总
 - 导出说明
 - 项目级备份
@@ -84,8 +96,8 @@ v1.1.1-fast-fix 是快捷工作台真实使用问题快速修复版本。本版�
 - 不做算量
 - 不做 BIM
 - 不做 AI 图纸问答
-- 不做图纸目录识别
-- 不做材料表 / 设备表 / 门窗表识别
+- 不保证复杂表格、嵌套表格、合并单元格 100% 准确
+- 不做跨 sheet 表格自动拼接
 - 不做多人协同
 - 不做云端同步
 - 不做自动修复数据库
@@ -112,10 +124,12 @@ DXF：
 DXF 上传
 → 准备图纸页
 → 解析 DXF
+→ 抽取表格 / 统计块
 → 生成 CAD 预览
 → 候选值
 → 字段融合
 → 校核
+→ 跨图一致性校验
 → Excel 导出
 → 项目备份
 
@@ -147,16 +161,16 @@ DWG 上传
 
 ## 便携包
 
-生成 v1.1.3 体验优化稳定包：
+生成 v1.1.6 深度抽取稳定包：
 
 ```bash
-python scripts/build_portable_package.py --version v1.1.3-fast-stable --clean
+python scripts/build_portable_package.py --version v1.1.6-deep-extract-stable --clean
 ```
 
 输出目录：
 
 ```text
-release/工程图纸智能台账识别系统-v1.1.3-fast-stable/
+release/工程图纸智能台账识别系统-v1.1.6-deep-extract-stable/
 ```
 
 ## 发布材料
@@ -169,6 +183,18 @@ release/工程图纸智能台账识别系统-v1.1.3-fast-stable/
 - `RELEASE_NOTES.md`
 
 ## 历史版本摘要
+
+### v1.1.6-deep-extract-stable 深度抽取稳定收口
+
+v1.1.6-deep-extract-stable 是深度抽取能力稳定收口版本。本版本不新增大功能，重点验证 DXF 表格抽取、INSERT 块统计、跨图一致性校验、Excel 新增 sheet 和 portable 打包，确保旧流程不回归。
+
+### v1.1.5-deep-extract 深度提取与跨图校验
+
+v1.1.5-deep-extract 在 v1.1.4 表格抽取基础上完成 INSERT 块统计、跨图纸一致性校验、图纸内嵌表格展示、标题栏定位自适应和 MTEXT 多行拆分。
+
+### v1.1.4-table-extract DXF 表格抽取
+
+v1.1.4-table-extract 新增 DXF 表格抽取能力，覆盖 ACAD_TABLE 实体和文字坐标聚类，并在 Excel 导出新增“图纸表格明细”sheet。
 
 ### v1.1.3-fast-stable v1.1 体验优化稳定包
 

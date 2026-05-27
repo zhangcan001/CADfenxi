@@ -24,7 +24,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.1.5-deep-extract"
+VERSION = "v1.1.6-deep-extract-stable"
 ROOT = Path(__file__).resolve().parents[1]
 
 

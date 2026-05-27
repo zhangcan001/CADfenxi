@@ -15,7 +15,7 @@ from scripts.build_portable_package import DEFAULT_VERSION
 from test_project_backup_restore import create_project, upload_files
 
 
-VERSION = "v1.1.5-deep-extract"
+VERSION = "v1.1.6-deep-extract-stable"
 ROOT = Path(__file__).resolve().parents[1]
 
 
