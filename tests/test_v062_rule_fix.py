@@ -31,7 +31,7 @@ from test_full_flow_stability_v055 import (
 from dwg_test_helpers import DWG_BYTES, clear_converter_tables, create_converter_setting, write_mock_converter
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 
 
 def field_candidates(candidates: list[dict], field_name: str) -> list[dict]:
@@ -274,3 +274,4 @@ def test_v062_parse_filename_month_date_keeps_auxiliary_source():
     candidates = parse_filename("JZ03_平面布置图_202406.dxf")
     assert any(item["field_name"] == "drawing_no" and item["normalized_value"] == "JZ-03" for item in candidates)
     assert any(item["field_name"] == "issue_date" and item["candidate_value"] == "202406" and item["normalized_value"] == "2024-06-01" for item in candidates)
+

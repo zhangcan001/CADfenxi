@@ -18,6 +18,15 @@ export type ImportedFile = {
   warnings: string[];
 };
 
+export type ImportItem = {
+  file_name: string;
+  file_type: string;
+  status: string;
+  warning: string | null;
+  error_code: string | null;
+  message: string | null;
+};
+
 export type DrawingFile = {
   id: number;
   project_id: number;
@@ -56,6 +65,13 @@ export type ImportBatch = {
   created_at: string;
   updated_at: string;
   files: ImportedFile[];
+  total_selected: number;
+  imported_count: number;
+  duplicate_count: number;
+  unsupported_count: number;
+  file_type_counts: Record<string, number>;
+  items: ImportItem[];
+  next_actions: string[];
 };
 
 export function uploadProjectDrawingFiles(

@@ -24,7 +24,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -322,9 +322,8 @@ def test_v102_temp_cleanup_does_not_delete_projects_backups_or_exports():
     assert not backup_path.exists()
     assert project_after_delete.status_code == 200
 
-
 def test_v115_deep_extract_smoke():
-    """v1.1.5 烟囱：parse-dxf 后 block_stats + tables 自动落库，consistency-check 不报错。"""
+    """深度抽取烟囱：parse-dxf 后 block_stats + tables 自动落库，consistency-check 不报错。"""
     from dwg_test_helpers import dxf_with_insert_blocks
 
     with TestClient(app) as client:

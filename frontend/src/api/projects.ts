@@ -30,6 +30,7 @@ export type Project = {
 
 export type ProjectWorkbenchSummary = {
   project_id: number;
+  drawing_file_count: number;
   drawing_sheet_count: number;
   unreviewed_count: number;
   low_confidence_count: number;
@@ -38,6 +39,7 @@ export type ProjectWorkbenchSummary = {
   open_error_count: number;
   open_warning_count: number;
   cad_preview_missing_count: number;
+  last_import_at: string | null;
   last_export_at: string | null;
   last_backup_at: string | null;
 };

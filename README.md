@@ -2,11 +2,13 @@
 
 ## 当前版本
 
-v1.1.6-deep-extract-stable
+v1.2-fast-import
 
 ## 版本定位
 
-v1.1 深度抽取稳定收口版本。
+v1.2 导入流程体验优化版本。
+
+v1.2-fast-import 是导入流程体验优化版本。本版本不新增识别能力，重点优化 PDF / DXF / DWG 导入前提示、导入结果摘要、重复文件提示、不支持格式提示和导入后的下一步建议。
 
 v1.1.6-deep-extract-stable 是深度抽取能力稳定收口版本。本版本不新增大功能，重点验证并收口 DXF 表格抽取、INSERT 块统计、跨图一致性校验、Excel 新增明细 sheet、前端内嵌表格展示和 portable 打包。
 
@@ -161,16 +163,16 @@ DWG 上传
 
 ## 便携包
 
-生成 v1.1.6 深度抽取稳定包：
+生成 v1.2 导入流程体验优化包：
 
 ```bash
-python scripts/build_portable_package.py --version v1.1.6-deep-extract-stable --clean
+python scripts/build_portable_package.py --version v1.2-fast-import --clean
 ```
 
 输出目录：
 
 ```text
-release/工程图纸智能台账识别系统-v1.1.6-deep-extract-stable/
+release/工程图纸智能台账识别系统-v1.2-fast-import/
 ```
 
 ## 发布材料
@@ -183,6 +185,10 @@ release/工程图纸智能台账识别系统-v1.1.6-deep-extract-stable/
 - `RELEASE_NOTES.md`
 
 ## 历史版本摘要
+
+### v1.2-fast-import 导入流程体验优化
+
+v1.2-fast-import 是导入流程体验优化版本。本版本不新增识别能力，重点优化 PDF / DXF / DWG 导入前提示、导入结果摘要、重复文件提示、不支持格式提示和导入后的下一步建议。
 
 ### v1.1.6-deep-extract-stable 深度抽取稳定收口
 

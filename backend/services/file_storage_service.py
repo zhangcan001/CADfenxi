@@ -41,7 +41,7 @@ def get_upload_source_format(file: UploadFile) -> tuple[str, str]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "error_code": "UNSUPPORTED_FORMAT",
+                "error_code": "UNSUPPORTED_FILE_TYPE",
                 "message": f"仅支持 PDF、DXF 或 DWG 文件：{original_name or '未命名文件'}",
             },
         )
@@ -54,7 +54,7 @@ def validate_pdf_upload(file: UploadFile) -> None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "error_code": "UNSUPPORTED_FORMAT",
+                "error_code": "UNSUPPORTED_FILE_TYPE",
                 "message": f"仅支持 PDF 文件：{file.filename or '未命名文件'}",
             },
         )

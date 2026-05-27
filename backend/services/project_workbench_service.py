@@ -14,6 +14,7 @@ def get_workbench_summary(db: Session, project_id: int) -> ProjectWorkbenchSumma
     get_project_or_404(db, project_id)
     return ProjectWorkbenchSummary(
         project_id=project_id,
+        drawing_file_count=count_files(db, project_id),
         drawing_sheet_count=count_sheets(db, project_id),
         unreviewed_count=count_unreviewed_sheets(db, project_id),
         low_confidence_count=count_low_confidence_sheets(db, project_id),
@@ -22,8 +23,18 @@ def get_workbench_summary(db: Session, project_id: int) -> ProjectWorkbenchSumma
         open_error_count=count_open_issues(db, project_id, "error"),
         open_warning_count=count_open_issues(db, project_id, "warning"),
         cad_preview_missing_count=count_cad_preview_missing(db, project_id),
+        last_import_at=latest_import_at(db, project_id),
         last_export_at=latest_export_at(db, project_id),
         last_backup_at=latest_backup_at(db, project_id),
+    )
+
+
+def count_files(db: Session, project_id: int) -> int:
+    return int(
+        db.scalar(
+            select(func.count()).select_from(DrawingFile).where(DrawingFile.project_id == project_id)
+        )
+        or 0
     )
 
 
@@ -107,6 +118,12 @@ def count_cad_preview_missing(db: Session, project_id: int) -> int:
 def latest_export_at(db: Session, project_id: int):
     return db.scalar(
         select(func.max(ExportRecord.created_at)).where(ExportRecord.project_id == project_id)
+    )
+
+
+def latest_import_at(db: Session, project_id: int):
+    return db.scalar(
+        select(func.max(DrawingFile.created_at)).where(DrawingFile.project_id == project_id)
     )
 
 

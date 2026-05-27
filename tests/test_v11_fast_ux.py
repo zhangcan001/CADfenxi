@@ -24,7 +24,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 
 
 def export_excel(client: TestClient, project_id: int) -> dict:
@@ -125,6 +125,7 @@ def test_empty_project_workbench_summary_returns_zero_counts():
     assert response.status_code == 200
     assert response.json() == {
         "project_id": project_id,
+        "drawing_file_count": 0,
         "drawing_sheet_count": 0,
         "unreviewed_count": 0,
         "low_confidence_count": 0,
@@ -133,6 +134,7 @@ def test_empty_project_workbench_summary_returns_zero_counts():
         "open_error_count": 0,
         "open_warning_count": 0,
         "cad_preview_missing_count": 0,
+        "last_import_at": None,
         "last_export_at": None,
         "last_backup_at": None,
     }
@@ -307,3 +309,4 @@ def test_v11_dwg_mock_conversion_and_cad_pipeline_do_not_regress(tmp_path):
     assert len(sheets) == 2
     assert export["ledger_row_count"] == 2
     assert system_health.status_code == 200
+

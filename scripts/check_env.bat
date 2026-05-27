@@ -3,7 +3,7 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0.."
 
-echo 工程图纸智能台账识别系统 v1.1.6-deep-extract-stable 环境检查
+echo 工程图纸智能台账识别系统 v1.2-fast-import 环境检查
 echo.
 
 where python >nul 2>nul
@@ -17,3 +17,4 @@ if errorlevel 1 (
 python scripts\local_launcher.py --check
 
 pause
+

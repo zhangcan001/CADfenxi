@@ -263,8 +263,8 @@ def test_error_paths_return_clear_codes():
         missing_project = client.get("/api/projects/999999")
         missing_export = client.get("/api/exports/999999/download")
 
-    assert non_pdf.status_code == 400
-    assert non_pdf.json()["detail"]["error_code"] == "UNSUPPORTED_FORMAT"
+    assert non_pdf.status_code == 201
+    assert non_pdf.json()["items"][0]["error_code"] == "UNSUPPORTED_FILE_TYPE"
     assert damaged_split.status_code == 400
     assert damaged_split.json()["detail"]["error_code"] == "PDF_OPEN_FAILED"
     assert missing_preview.status_code == 400

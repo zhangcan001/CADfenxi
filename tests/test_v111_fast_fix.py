@@ -24,7 +24,7 @@ from test_recognition_raw import _wait_for_ocr_job
 from test_v11_fast_ux import add_manual_sheet, export_excel
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 
 
 def test_v111_health_version_and_package_default():
@@ -45,6 +45,7 @@ def test_v111_empty_project_workbench_summary_is_safe():
     assert response.status_code == 200
     assert response.json() == {
         "project_id": project_id,
+        "drawing_file_count": 0,
         "drawing_sheet_count": 0,
         "unreviewed_count": 0,
         "low_confidence_count": 0,
@@ -53,6 +54,7 @@ def test_v111_empty_project_workbench_summary_is_safe():
         "open_error_count": 0,
         "open_warning_count": 0,
         "cad_preview_missing_count": 0,
+        "last_import_at": None,
         "last_export_at": None,
         "last_backup_at": None,
     }
@@ -334,3 +336,4 @@ def test_v111_portable_package_can_be_generated_and_is_clean():
     assert [p.name for p in (package_dir / "app_data" / "database").iterdir()] == [".gitkeep"]
     package_info = (package_dir / "package_info.txt").read_text(encoding="utf-8")
     assert VERSION in package_info
+

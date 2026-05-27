@@ -239,6 +239,12 @@ textarea {
   font-size: 14px;
 }
 
+.primary-button {
+  border-color: #1e5aa7;
+  background: #1e5aa7;
+  color: #ffffff;
+}
+
 .backup-success {
   display: grid;
   gap: 6px;
@@ -497,6 +503,79 @@ textarea {
 .conversion-summary {
   display: grid;
   gap: 10px;
+}
+
+.import-guide,
+.import-precheck,
+.import-next-step,
+.import-note,
+.import-warning {
+  display: grid;
+  gap: 10px;
+}
+
+.import-guide,
+.import-precheck,
+.import-next-step {
+  padding: 14px;
+  border: 1px solid #e1e7ef;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.import-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  color: #526276;
+  font-size: 14px;
+}
+
+.import-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 10px 0;
+}
+
+.import-file-row {
+  grid-template-columns: minmax(160px, 1fr) 110px 80px 120px;
+}
+
+.import-items-list {
+  overflow-x: auto;
+}
+
+.import-item-row {
+  min-width: 820px;
+  grid-template-columns: minmax(180px, 1.2fr) 80px 100px 150px minmax(260px, 1.4fr);
+}
+
+.import-item-row.duplicate,
+.import-note {
+  border-color: #ead28b;
+  background: #fffaf0;
+}
+
+.import-item-row.unsupported,
+.import-item-row.failed,
+.import-warning {
+  border-color: #efc8c8;
+  background: #fff7f7;
+}
+
+.import-note,
+.import-warning {
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.import-note {
+  color: #6f4d00;
+}
+
+.import-warning {
+  color: #8a2323;
 }
 
 .project-cards {
@@ -1252,6 +1331,7 @@ select {
   }
 
   .home-grid,
+  .import-guide-grid,
   .quick-action-groups,
   .project-overview,
   .flow-guide {
@@ -1285,6 +1365,8 @@ select {
   .file-row.run-row,
   .file-row.export-row,
   .file-row.health-row,
+  .import-file-row,
+  .import-item-row,
   .pipeline-result .file-row,
   .issue-row {
     grid-template-columns: 1fr;

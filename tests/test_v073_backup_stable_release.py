@@ -9,7 +9,7 @@ from test_full_flow_stability_v055 import make_pdf_bytes, title_block_dxf
 from test_project_backup_restore import backup_project, create_project, upload_files
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -104,3 +104,4 @@ def test_v073_restore_failure_does_not_break_existing_project():
     assert failed_restore.status_code == 400
     assert failed_restore.json()["detail"]["error_code"] == "RESTORE_FAILED"
     assert project_after_failure.status_code == 200
+

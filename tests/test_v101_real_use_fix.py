@@ -25,7 +25,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -389,3 +389,4 @@ def test_v101_cad_preview_failure_does_not_block_excel_export():
     assert failed_preview.status_code == 200
     assert failed_preview.json()["status"] == "failed"
     assert export["ledger_row_count"] >= 1
+

@@ -77,6 +77,7 @@ class ProjectRead(BaseModel):
 
 class ProjectWorkbenchSummary(BaseModel):
     project_id: int
+    drawing_file_count: int = 0
     drawing_sheet_count: int = 0
     unreviewed_count: int = 0
     low_confidence_count: int = 0
@@ -85,5 +86,6 @@ class ProjectWorkbenchSummary(BaseModel):
     open_error_count: int = 0
     open_warning_count: int = 0
     cad_preview_missing_count: int = 0
+    last_import_at: datetime | None = None
     last_export_at: datetime | None = None
     last_backup_at: datetime | None = None

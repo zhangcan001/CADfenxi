@@ -1,7 +1,7 @@
 {
   "name": "drawing-ledger-ai-frontend",
   "private": true,
-  "version": "v1.1.6-deep-extract-stable",
+  "version": "v1.2-fast-import",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -27,3 +27,4 @@
     "rollup-plugin-visualizer": "^7.0.1"
   }
 }
+

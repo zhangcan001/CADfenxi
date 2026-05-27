@@ -29,7 +29,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -460,3 +460,4 @@ def test_v10_portable_package_contains_required_release_materials_and_clean_app_
     for dirname in ["projects", "backups", "database", "logs", "temp"]:
         entries = sorted(item.name for item in (package_dir / "app_data" / dirname).iterdir())
         assert entries == [".gitkeep"]
+

@@ -3,7 +3,7 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0.."
 
-echo 工程图纸智能台账识别系统 v1.1.6-deep-extract-stable 本地启动
+echo 工程图纸智能台账识别系统 v1.2-fast-import 本地启动
 echo.
 
 where python >nul 2>nul
@@ -34,3 +34,4 @@ if errorlevel 1 (
   echo [ERROR] 本地服务启动失败，请查看 app_data\logs\local_launcher.log。
 )
 pause
+

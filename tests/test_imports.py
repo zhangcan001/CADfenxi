@@ -99,7 +99,7 @@ def test_upload_multiple_pdfs_success():
     assert len(response.json()["files"]) == 2
 
 
-def test_upload_non_pdf_fails():
+def test_upload_unsupported_file_returns_import_item():
     with TestClient(app) as client:
         project_id = create_project(client)
         response = client.post(
@@ -107,8 +107,14 @@ def test_upload_non_pdf_fails():
             files=[("files", ("note.txt", b"hello", "text/plain"))],
         )
 
-    assert response.status_code == 400
-    assert response.json()["detail"]["error_code"] == "UNSUPPORTED_FORMAT"
+    assert response.status_code == 201
+    data = response.json()
+    assert data["total_selected"] == 1
+    assert data["imported_count"] == 0
+    assert data["unsupported_count"] == 1
+    assert data["file_type_counts"]["unsupported"] == 1
+    assert data["items"][0]["status"] == "unsupported"
+    assert data["items"][0]["error_code"] == "UNSUPPORTED_FILE_TYPE"
 
 
 def test_upload_empty_file_list_fails():
@@ -205,7 +211,10 @@ def test_duplicate_upload_returns_warning():
         )
 
     assert response.status_code == 201
-    assert "duplicate_file" in response.json()["files"][0]["warnings"]
+    data = response.json()
+    assert data["duplicate_count"] == 1
+    assert data["items"][0]["status"] == "duplicate"
+    assert data["items"][0]["warning"] == "duplicate_file"
 
 
 def test_get_import_batch_returns_files():

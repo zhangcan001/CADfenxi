@@ -21,7 +21,7 @@ from test_full_flow_stability_v055 import make_pdf_bytes, title_block_dxf
 from test_project_backup_restore import backup_project, create_project, upload_files
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -233,3 +233,4 @@ def test_v084_pdf_preview_and_portable_package_regressions():
     assert package_dir.is_dir()
     assert VERSION in package_info
     assert "CAD 预览仅用于辅助查看" in package_info
+

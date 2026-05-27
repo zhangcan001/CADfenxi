@@ -15,7 +15,7 @@ from scripts.build_portable_package import DEFAULT_VERSION
 from test_project_backup_restore import create_project, upload_files
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -161,3 +161,4 @@ def test_missing_project_health_check_returns_structured_error():
 
     assert response.status_code == 404
     assert response.json()["detail"]["error_code"] == "PROJECT_NOT_FOUND"
+

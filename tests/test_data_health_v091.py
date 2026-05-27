@@ -16,7 +16,7 @@ from backend.models.project import Project
 from scripts.build_portable_package import DEFAULT_VERSION
 
 
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -196,3 +196,4 @@ def test_project_health_reports_low_confidence_unreviewed_as_info_and_open_error
     assert by_code["LOW_CONFIDENCE_EXISTS"]["status"] == "info"
     assert by_code["UNREVIEWED_SHEETS_EXISTS"]["status"] == "info"
     assert by_code["OPEN_ERROR_EXISTS"]["status"] == "warning"
+

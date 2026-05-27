@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DrawingFileRead(BaseModel):
@@ -46,4 +46,4 @@ class ImportedFileRead(BaseModel):
     convert_status: str | None = None
     convert_error_code: str | None = None
     convert_error_message: str | None = None
-    warnings: list[str] = []
+    warnings: list[str] = Field(default_factory=list)

@@ -8,7 +8,7 @@ from scripts.build_portable_package import DEFAULT_VERSION
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "v1.1.6-deep-extract-stable"
+VERSION = "v1.2-fast-import"
 
 
 def read_text(relative_path: str) -> str:
@@ -81,3 +81,4 @@ def test_v084_docs_include_stable_release_materials():
     assert (ROOT / "docs" / "CAD_PREVIEW_STABILITY_REPORT_v0.8.4.md").exists()
     assert (ROOT / "docs" / "RELEASE_CHECKLIST_v1.0-local-stable.md").exists()
     assert (ROOT / "samples" / "cad_preview_stability_v0_8_4" / "README.md").exists()
+

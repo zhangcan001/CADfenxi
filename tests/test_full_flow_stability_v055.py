@@ -335,8 +335,14 @@ def test_v055_empty_export_and_unsupported_upload_errors_are_clear():
 
     assert export.status_code == 409
     assert "当前项目没有图纸" in export.json()["detail"]["summary_message"]
-    assert unsupported.status_code == 400
-    assert "detail" in unsupported.json()
+    assert unsupported.status_code == 201
+    unsupported_body = unsupported.json()
+    assert unsupported_body["total_selected"] == 1
+    assert unsupported_body["imported_count"] == 0
+    assert unsupported_body["unsupported_count"] == 1
+    assert unsupported_body["items"][0]["status"] == "unsupported"
+    assert unsupported_body["items"][0]["error_code"] == "UNSUPPORTED_FILE_TYPE"
+    assert "不支持" in unsupported_body["items"][0]["message"]
 
 
 def client_values(sheet_id: int) -> dict[str, dict]:

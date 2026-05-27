@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-APP_VERSION = "v1.1.6-deep-extract-stable"
+APP_VERSION = "v1.2-fast-import"
 DEFAULT_PORT = 8000
 HEALTH_TIMEOUT_SECONDS = 45
 MIN_PYTHON_VERSION = (3, 11)
@@ -319,3 +319,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
