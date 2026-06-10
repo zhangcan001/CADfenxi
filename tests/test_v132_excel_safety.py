@@ -30,7 +30,7 @@ from test_v11_fast_ux import export_excel
 from test_v13_deep_extract_review import add_confirmed_sheet, make_cad_json, post_import, text_item, upload_and_parse_dxf
 
 
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 
 
 def _issue_statuses(project_id: int) -> dict[int, str]:

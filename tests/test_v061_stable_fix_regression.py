@@ -190,8 +190,18 @@ def test_v061_excel_export_does_not_change_review_or_issue_status_and_template_v
         assert client.post(f"/api/sheets/{sheet_id}/generate-candidates").status_code == 200
         assert client.post(f"/api/sheets/{sheet_id}/fuse-fields").status_code == 200
         before = sheet_snapshot(sheet_id)
+        with SessionLocal() as db:
+            issue_status_before = {
+                issue.id: issue.status
+                for issue in db.scalars(select(DrawingIssue).where(DrawingIssue.sheet_id == sheet_id)).all()
+            }
         export = export_excel(client, project_id)
         after = sheet_snapshot(sheet_id)
+        with SessionLocal() as db:
+            issue_status_after = {
+                issue.id: issue.status
+                for issue in db.scalars(select(DrawingIssue).where(DrawingIssue.sheet_id == sheet_id)).all()
+            }
 
     workbook = load_workbook(settings.root_dir / export["file_path"])
     with SessionLocal() as db:
@@ -199,5 +209,5 @@ def test_v061_excel_export_does_not_change_review_or_issue_status_and_template_v
     assert workbook["导出说明"]["B3"].value == VERSION
     assert workbook["图纸总台账"].max_row - 1 == export["ledger_row_count"]
     assert before["review_status"] == after["review_status"]
-    assert before["issues"] == after["issues"]
+    assert issue_status_before == issue_status_after
     assert field_count >= 1

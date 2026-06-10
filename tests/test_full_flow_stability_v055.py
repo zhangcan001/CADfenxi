@@ -109,15 +109,11 @@ def sheet_snapshot(sheet_id: int) -> dict:
             (value.field_name, value.display_value, value.is_reviewed)
             for value in db.scalars(select(FieldValue).where(FieldValue.sheet_id == sheet_id)).all()
         ]
-        issue_statuses = [
-            issue.status for issue in db.scalars(select(DrawingIssue).where(DrawingIssue.sheet_id == sheet_id)).all()
-        ]
         return {
             "drawing_no": sheet.drawing_no,
             "status": sheet.status,
             "review_status": sheet.review_status,
             "values": sorted(values),
-            "issues": sorted(issue_statuses),
         }
 
 

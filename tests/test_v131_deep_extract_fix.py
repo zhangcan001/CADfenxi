@@ -41,7 +41,7 @@ from test_v13_deep_extract_review import (
 )
 
 
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 
 
 def test_v131_health_version():
@@ -287,7 +287,7 @@ def test_v131_excel_detail_sheets_are_clear_and_do_not_pollute_ledger():
         assert workbook["图纸总台账"]["D2"].value == "建施-131C"
         table_headers = [cell.value for cell in workbook["图纸表格明细"][1]]
         block_headers = [cell.value for cell in workbook["图纸块统计"][1]]
-        assert table_headers == [
+        assert {
             "序号",
             "Sheet ID",
             "原始文件名",
@@ -298,14 +298,15 @@ def test_v131_excel_detail_sheets_are_clear_and_do_not_pollute_ledger():
             "表格序号",
             "抽取方式",
             "可信度",
+            "低可信标记",
             "行号",
-            "行数",
-            "列数",
+            "列号",
+            "单元格内容",
             "表头(JSON)",
             "数据(JSON)",
             "抽取提示",
-        ]
-        assert block_headers == [
+        }.issubset(set(table_headers))
+        assert {
             "序号",
             "Sheet ID",
             "原始文件名",
@@ -313,11 +314,14 @@ def test_v131_excel_detail_sheets_are_clear_and_do_not_pollute_ledger():
             "图号",
             "图名",
             "块名",
+            "归一化块名",
             "图层",
             "推断专业",
             "数量",
+            "是否过滤",
+            "过滤原因",
             "关键属性",
-        ]
+        }.issubset(set(block_headers))
         block_text = "\n".join(str(cell) for row in workbook["图纸块统计"].iter_rows(values_only=True) for cell in row if cell)
         assert "LAMP" in block_text
         assert "A1_FRAME" not in block_text

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-DEFAULT_VERSION = "v1.4-fast-real-project-trial"
+DEFAULT_VERSION = "v1.5.1-fast-delivery-package-fix"
 PACKAGE_PREFIX = "工程图纸智能台账识别系统"
 
 
@@ -147,6 +147,14 @@ def write_package_info(package_dir: Path, version: str, tests_status: str) -> Pa
         package_type = "Windows 本地便携正式稳定版"
         important_limit_line = "重要限制：不直接解析 DWG，不做 CAD 编辑，不做算量 / BIM / AI 图纸问答。"
         backup_line = "备份说明：关闭系统后复制 app_data 目录即可备份全部数据。"
+    elif "project-delivery-package" in version or "delivery-package-fix" in version:
+        package_type = "Windows 便携版 Stable（项目交付包版本）"
+        important_limit_line = "重要限制：交付包不用于系统恢复；不直接解析 DWG，不做 CAD 编辑 / 算量 / BIM / AI 问答。"
+        backup_line = "备份说明：如需恢复系统数据，请使用项目备份包；关闭系统后复制 app_data 目录也可备份数据。"
+    elif "excel-delivery-polish" in version:
+        package_type = "Windows 便携版 Excel 交付优化版"
+        important_limit_line = "重要限制：不直接解析 DWG，CAD 预览仅用于辅助查看，不做 CAD 编辑 / 算量 / BIM / AI 问答。"
+        backup_line = "备份说明：关闭系统后复制 app_data 目录即可备份数据。"
     elif "real-project-trial" in version:
         package_type = "Windows 便携版 Trial"
         important_limit_line = "重要限制：不直接解析 DWG，CAD 预览仅用于辅助查看，不做 CAD 编辑 / 算量 / BIM / AI 问答。"

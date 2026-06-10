@@ -867,6 +867,54 @@ dd {
   color: #8a5a00;
 }
 
+.delivery-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #dfe7f2;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.delivery-panel p {
+  margin: 0;
+  color: #52627a;
+  font-size: 14px;
+}
+
+.delivery-panel ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #52627a;
+  font-size: 13px;
+}
+
+.delivery-warning {
+  color: #9a4f00 !important;
+}
+
+.delivery-hint {
+  color: #52627a;
+}
+
+.delivery-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 10px 16px;
+}
+
+.delivery-options label {
+  display: flex;
+  width: auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.delivery-options input {
+  width: auto;
+}
+
 .sheet-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

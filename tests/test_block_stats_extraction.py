@@ -14,7 +14,7 @@ from tests.dwg_test_helpers import (
 )
 
 
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 
 
 @pytest.fixture(scope="module")

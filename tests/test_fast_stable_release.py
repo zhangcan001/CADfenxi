@@ -24,7 +24,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_recognition_raw import _wait_for_ocr_job
 
 
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -93,7 +93,7 @@ def test_v102_health_version_and_portable_package_are_ready():
     assert summary.package_dir == package_dir
     assert summary.integrity_ok is True
     assert package_dir.name == f"工程图纸智能台账识别系统-{VERSION}"
-    assert "包类型：Windows 便携版 Trial" in package_info
+    assert "包类型：Windows 便携版 Stable" in package_info
     assert (package_dir / "backend").is_dir()
     assert (package_dir / "recognizer").is_dir()
     assert (package_dir / "frontend" / "dist" / "index.html").is_file()

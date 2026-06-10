@@ -2,11 +2,21 @@
 
 ## 当前版本
 
-v1.4-fast-real-project-trial
+v1.5.1-fast-delivery-package-fix
 
 ## 版本定位
 
-v1.4 真实项目整体验收试用版本。
+v1.5.1 项目交付包真实使用问题修复版本。
+
+v1.5.1-fast-delivery-package-fix 是项目交付包真实使用问题修复版本。本版本不新增业务能力，重点修复交付包体积控制、原始图纸选项提示、Excel 自动生成提示、交付说明、预览路径缺失、下载失败提示、交付包与备份包边界和状态不变性问题。
+
+v1.5-fast-project-delivery-package 新增项目交付包导出。交付包用于成果移交或归档，不用于系统恢复。系统恢复仍应使用项目备份包。
+
+v1.4.3-fast-real-project-stable 是真实项目稳定包整理版本。本版本不新增功能，重点回归真实项目导入、PDF / DXF / DWG、CAD pipeline、CAD 预览、深度抽取、校核、Excel 交付、备份恢复、健康检查和 portable 打包。
+
+v1.4.2-fast-excel-delivery-polish 是真实项目 Excel 交付质量优化版本。本版本不新增识别能力，重点优化 Excel sheet 顺序、表头、列宽、问题清单、表格明细、块统计和导出说明，让导出文件更适合真实交付。
+
+v1.4.1-fast-real-project-fix 是真实项目问题快速修复版本。本版本不新增功能，重点修复和守护真实项目试用中暴露或高风险的导入、深度抽取、Excel 导出、CAD 预览、备份恢复和健康检查问题，确保人工确认字段和主台账交付结果稳定。
 
 v1.4-fast-real-project-trial 是真实项目整体验收试用版本。本版本不新增功能，重点用真实或接近真实项目验证从导入、PDF 拆页、DWG 转 DXF、CAD pipeline、深度抽取、校核、Excel 导出、备份恢复到健康检查的完整流程，并沉淀 v1.4.1 修复清单。
 
@@ -85,6 +95,7 @@ v1.1.1-fast-fix 是快捷工作台真实使用问题快速修复版本。本版�
 - 图纸块统计
 - 校核状态汇总
 - 导出说明
+- 项目交付包导出
 - 项目级备份
 - 项目恢复为新项目
 - 备份校验
@@ -179,16 +190,16 @@ DWG 上传
 
 ## 便携包
 
-生成 v1.4 真实项目试用包：
+生成 v1.5.1 项目交付包修复版本：
 
 ```bash
-python scripts/build_portable_package.py --version v1.4-fast-real-project-trial --clean
+python scripts/build_portable_package.py --version v1.5.1-fast-delivery-package-fix --clean
 ```
 
 输出目录：
 
 ```text
-release/工程图纸智能台账识别系统-v1.4-fast-real-project-trial/
+release/工程图纸智能台账识别系统-v1.5.1-fast-delivery-package-fix/
 ```
 
 ## 发布材料
@@ -200,9 +211,30 @@ release/工程图纸智能台账识别系统-v1.4-fast-real-project-trial/
 - `docs/FAST_RELEASE_REPORT_v1.1.3.md`
 - `docs/FAST_RELEASE_REPORT_v1.3.3.md`
 - `docs/REAL_PROJECT_TRIAL_REPORT_v1.4.md`
+- `docs/FAST_RELEASE_REPORT_v1.4.3.md`
 - `RELEASE_NOTES.md`
 
 ## 历史版本摘要
+
+### v1.5.1-fast-delivery-package-fix 项目交付包真实使用问题修复
+
+v1.5.1-fast-delivery-package-fix 修复交付包真实使用问题：默认不包含原始图纸以控制体积，包含原始图纸时明确提示包可能较大；没有可用 Excel 时自动生成本次交付包台账但不写入导出历史；交付说明明确“不用于恢复系统数据”；下载失败返回清晰错误；交付包生成不改变图纸校核状态和问题状态。
+
+### v1.5-fast-project-delivery-package 项目交付包导出
+
+v1.5-fast-project-delivery-package 新增项目交付包导出。交付包用于成果移交或归档，不用于系统恢复。系统恢复仍应使用项目备份包。
+
+### v1.4.3-fast-real-project-stable 真实项目稳定包整理
+
+v1.4.3-fast-real-project-stable 是真实项目稳定包整理版本。本版本不新增功能，重点回归真实项目流程、Excel 交付、深度抽取、核心功能，并生成 portable 稳定包。
+
+### v1.4.2-fast-excel-delivery-polish 真实项目 Excel 交付质量优化
+
+v1.4.2-fast-excel-delivery-polish 是真实项目 Excel 交付质量优化版本。本版本不新增识别能力，重点优化 Excel sheet 顺序、表头、列宽、问题清单、表格明细、块统计和导出说明。
+
+### v1.4.1-fast-real-project-fix 真实项目问题快速修复
+
+v1.4.1-fast-real-project-fix 是真实项目问题快速修复版本。本版本不新增功能，重点修复和守护真实项目试用中暴露或高风险的导入、深度抽取、Excel 导出、CAD 预览、备份恢复和健康检查问题。
 
 ### v1.4-fast-real-project-trial 真实项目整体验收试用
 

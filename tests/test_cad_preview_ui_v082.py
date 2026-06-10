@@ -8,7 +8,7 @@ from scripts.build_portable_package import DEFAULT_VERSION
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 
 
 def read_text(relative_path: str) -> str:

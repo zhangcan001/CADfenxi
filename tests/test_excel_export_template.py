@@ -139,7 +139,7 @@ def test_excel_export_template_contains_required_sheets_headers_and_styles():
 
     assert result["ledger_row_count"] == 3
     assert result["issue_row_count"] == 1
-    assert ["图纸总台账", "问题清单", "专业汇总", "图纸表格明细", "图纸块统计", "校核状态汇总", "导出说明"] == workbook.sheetnames
+    assert ["图纸总台账", "问题清单", "专业汇总", "校核状态汇总", "图纸表格明细", "图纸块统计", "导出说明"] == workbook.sheetnames
     assert [cell.value for cell in workbook["图纸总台账"][1]] == [
         "序号", "项目名称", "专业", "图纸编号", "图纸名称", "版本", "出图日期",
         "文件格式", "原始文件名", "来源文件", "识别来源", "可信等级", "识别评分",

@@ -5,12 +5,14 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 export interface ApiRequestOptions extends Omit<RequestInit, "signal"> {
   /** Per-request timeout in milliseconds. Defaults to 60s. Pass 0 to disable. */
   timeoutMs?: number;
+  /** Response parser. Defaults to JSON; use blob for downloads that still need structured errors. */
+  responseType?: "json" | "blob";
   /** External AbortSignal — composed with the internal timeout signal. */
   signal?: AbortSignal;
 }
 
 export async function apiRequest<T>(url: string, options?: ApiRequestOptions): Promise<T> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, signal, headers, ...rest } = options ?? {};
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, responseType = "json", signal, headers, ...rest } = options ?? {};
 
   const controller = new AbortController();
   const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
@@ -45,6 +47,9 @@ export async function apiRequest<T>(url: string, options?: ApiRequestOptions): P
     }
     if (response.status === 204) {
       return undefined as T;
+    }
+    if (responseType === "blob") {
+      return (await response.blob()) as T;
     }
     return (await response.json()) as T;
   } catch (error) {

@@ -35,7 +35,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_v11_fast_ux import export_excel
 
 
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 
 
 def post_import(client: TestClient, project_id: int, files: list[tuple[str, bytes, str]]) -> dict:
@@ -266,9 +266,9 @@ def test_v13_table_and_block_endpoints_and_excel_sheets_do_not_pollute_ledger():
             "图纸总台账",
             "问题清单",
             "专业汇总",
+            "校核状态汇总",
             "图纸表格明细",
             "图纸块统计",
-            "校核状态汇总",
             "导出说明",
         ]
         assert workbook["图纸总台账"].max_row == 2

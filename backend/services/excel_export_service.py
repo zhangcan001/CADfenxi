@@ -45,14 +45,14 @@ def build_excel(
     discipline_ws = workbook.create_sheet("专业汇总")
     write_discipline_summary_sheet(discipline_ws, context)
 
+    review_ws = workbook.create_sheet("校核状态汇总")
+    write_review_summary_sheet(review_ws, context)
+
     table_detail_ws = workbook.create_sheet("图纸表格明细")
     write_table_detail_sheet(table_detail_ws, db, project.id, context)
 
     block_stats_ws = workbook.create_sheet("图纸块统计")
     write_block_stats_sheet(block_stats_ws, db, project.id, context)
-
-    review_ws = workbook.create_sheet("校核状态汇总")
-    write_review_summary_sheet(review_ws, context)
 
     info_ws = workbook.create_sheet("导出说明")
     write_info_sheet(info_ws, project, check_result, len(context["sheets"]), len(context["issues"]))
@@ -227,12 +227,7 @@ def write_discipline_summary_sheet(ws, context: dict) -> None:
 
 
 def write_table_detail_sheet(ws, db: Session, project_id: int, context: dict) -> None:
-    """每行 = 一张表的一个数据行（unpack 后）。
-
-    列：序号 / Sheet ID / 原始文件名 / 专业 / 图号 / 图名 / 表格类型 / 表格序号 /
-    抽取方式 / 可信度 / 行号 / 行数 / 列数 / 表头(JSON) / 数据(JSON) / 抽取提示
-    监理用「表格类型」筛选 equipment / material / drawing_index / legend。
-    """
+    """每行 = 一张表的一个非空单元格，保留行级 JSON 供旧版本核对。"""
     headers = [
         "序号",
         "Sheet ID",
@@ -244,7 +239,10 @@ def write_table_detail_sheet(ws, db: Session, project_id: int, context: dict) ->
         "表格序号",
         "抽取方式",
         "可信度",
+        "低可信标记",
         "行号",
+        "列号",
+        "单元格内容",
         "行数",
         "列数",
         "表头(JSON)",
@@ -280,49 +278,39 @@ def write_table_detail_sheet(ws, db: Session, project_id: int, context: dict) ->
         header_json = table.header_json or "[]"
         rows = _parse_rows_json(table.rows_json)
         warnings = _json_list_text(table.warnings_json)
+        confidence = table_confidence_label(table.warnings_json)
+        low_confidence = "是" if confidence == "低可信" else "否"
         if not rows:
-            ws.append([
-                counter,
-                table.sheet_id,
-                original_name,
-                discipline,
-                drawing_no,
-                drawing_name,
-                table_kind_label(table.table_kind),
-                table.table_index,
-                extraction_method_label(table.extraction_method),
-                table_confidence_label(table.warnings_json),
-                0,
-                table.row_count,
-                table.col_count,
-                header_json,
-                "",
-                warnings,
-            ])
-            counter += 1
             continue
         for row_idx, row in enumerate(rows, start=1):
-            ws.append([
-                counter,
-                table.sheet_id,
-                original_name,
-                discipline,
-                drawing_no,
-                drawing_name,
-                table_kind_label(table.table_kind),
-                table.table_index,
-                extraction_method_label(table.extraction_method),
-                table_confidence_label(table.warnings_json),
-                row_idx,
-                table.row_count,
-                table.col_count,
-                header_json,
-                _row_to_text(row),
-                warnings,
-            ])
-            counter += 1
+            row_text = _row_to_text(row)
+            for col_idx, cell_text in enumerate(row, start=1):
+                if not str(cell_text).strip():
+                    continue
+                ws.append([
+                    counter,
+                    table.sheet_id,
+                    original_name,
+                    discipline,
+                    drawing_no,
+                    drawing_name,
+                    table_kind_label(table.table_kind),
+                    table.table_index,
+                    extraction_method_label(table.extraction_method),
+                    confidence,
+                    low_confidence,
+                    row_idx,
+                    col_idx,
+                    str(cell_text),
+                    table.row_count,
+                    table.col_count,
+                    header_json,
+                    row_text,
+                    warnings,
+                ])
+                counter += 1
 
-    style_sheet(ws, number_columns={1, 2, 8, 11, 12, 13})
+    style_sheet(ws, number_columns={1, 2, 8, 12, 13, 15, 16})
 
 
 def _parse_rows_json(value: str | None) -> list[list[str]]:
@@ -392,11 +380,7 @@ def extraction_method_label(method: str) -> str:
 
 
 def write_block_stats_sheet(ws, db: Session, project_id: int, context: dict) -> None:
-    """每行 = 一个 (block_name, layer) 在某 sheet 的统计行。
-
-    列：序号 / Sheet ID / 原始文件名 / 专业 / 图号 / 图名 / 块名 / 图层 / 推断专业 / 数量 / 关键属性
-    监理用「推断专业」筛选可拿到 全项目某专业的块清单（设备符号统计）。
-    """
+    """每行 = 一个 (block_name, layer) 在某 sheet 的辅助统计行。"""
     headers = [
         "序号",
         "Sheet ID",
@@ -405,9 +389,12 @@ def write_block_stats_sheet(ws, db: Session, project_id: int, context: dict) -> 
         "图号",
         "图名",
         "块名",
+        "归一化块名",
         "图层",
         "推断专业",
         "数量",
+        "是否过滤",
+        "过滤原因",
         "关键属性",
     ]
     ws.append(headers)
@@ -445,15 +432,18 @@ def write_block_stats_sheet(ws, db: Session, project_id: int, context: dict) -> 
                 drawing_no,
                 drawing_name,
                 stat.block_name,
+                normalize_block_name_for_export(stat.block_name),
                 stat.layer_name or "",
                 stat.discipline_guess or "未识别",
                 stat.count,
+                "否",
+                "已保留为辅助块统计；图框块、标题栏块、匿名块已在抽取阶段过滤",
                 _attribs_text(stat.attribs_summary_json),
             ]
         )
         counter += 1
 
-    style_sheet(ws, number_columns={1, 2, 10})
+    style_sheet(ws, number_columns={1, 2, 11})
 
 
 def _attribs_text(value: str | None) -> str:
@@ -470,6 +460,10 @@ def _attribs_text(value: str | None) -> str:
         if isinstance(values, list):
             parts.append(f"{tag}: {', '.join(str(v) for v in values[:5])}")
     return " | ".join(parts)
+
+
+def normalize_block_name_for_export(value: str | None) -> str:
+    return " ".join((value or "").strip().split())
 
 
 def write_review_summary_sheet(ws, context: dict) -> None:
@@ -503,6 +497,7 @@ def write_info_sheet(ws, project: Project, check_result: ExportCheckResult, shee
         ("系统版本", SYSTEM_VERSION),
         ("项目名称", project.name),
         ("导出时间", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        ("生成说明", "本 Excel 由系统自动生成。"),
         ("导出范围", "当前项目全部图纸"),
         ("图纸总数", sheet_count),
         ("已确认图纸数量", sheet_count - check_result.unconfirmed_count),
@@ -514,9 +509,15 @@ def write_info_sheet(ws, project: Project, check_result: ExportCheckResult, shee
         ("低可信表格数量", check_result.low_confidence_table_count),
         ("块统计图纸数量", check_result.block_stats_sheet_count),
         ("跨图一致性问题数量", check_result.consistency_issue_count),
+        ("台账字段说明", "图纸总台账以人工确认字段优先；人工确认值优先于机器识别值。"),
+        ("图纸表格明细说明", "图纸表格明细仅作为辅助参考，不会写入或覆盖图纸总台账。"),
+        ("图纸块统计说明", "图纸块统计仅作为辅助参考，不作为工程量或造价依据；图框块、标题栏块、匿名块已在抽取阶段过滤。"),
+        ("跨图一致性说明", "跨图一致性问题用于辅助发现重复图号、图名冲突、版本异常等问题，已进入问题清单供人工复核。"),
+        ("CAD 预览说明", "CAD 预览仅作为辅助查看，不保证与专业 CAD 软件完全一致。"),
+        ("DWG 处理说明", "系统不直接解析 DWG，DWG 通过外部工具转换为 DXF 后识别。"),
+        ("数据来源说明", "PDF 来源：PDF 文本、标题栏 OCR、文件名、规则推断。DXF 来源：CAD 块属性、CAD 文字、CAD 多行文字、CAD 图层、文件名。"),
+        ("重要限制说明", "本系统用于辅助生成图纸台账。低可信图纸、存在错误或警告的图纸，应人工复核。最终成果应由人工复核确认。"),
         ("深度抽取导出说明", "图纸表格明细、图纸块统计和跨图一致性问题均为辅助信息；正式图纸总台账只使用主字段，不会被表格明细或块统计覆盖。"),
-        ("数据来源说明", "PDF 来源：PDF 文本、标题栏 OCR、文件名、规则推断。DXF 来源：CAD 块属性、CAD 文字、CAD 多行文字、CAD 图层、文件名。DWG 来源：系统不直接解析 DWG，需外部工具转换为 DXF 后识别。人工确认值优先于机器识别值。"),
-        ("重要限制说明", "本系统用于辅助生成图纸台账。低可信图纸、存在错误或警告的图纸，应人工复核。最终交付前应以人工校核结果为准。"),
         ("台账状态", "完整台账" if check_result.is_complete_ledger else "存在需复核项"),
     ]
     ws.append(["项目", "内容"])
@@ -583,8 +584,11 @@ def apply_preferred_widths(ws) -> None:
         "说明": 42,
         "数据(JSON)": 48,
         "表头(JSON)": 48,
+        "单元格内容": 32,
         "抽取提示": 32,
         "关键属性": 42,
+        "过滤原因": 50,
+        "归一化块名": 24,
     }
     for cell in ws[1]:
         width = preferred.get(str(cell.value))

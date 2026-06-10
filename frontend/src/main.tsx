@@ -134,6 +134,12 @@ import {
   type ExportRecord
 } from "./api/exports";
 import {
+  createDeliveryPackage,
+  downloadDeliveryPackage,
+  type DeliveryPackageRequest,
+  type DeliveryPackageResult
+} from "./api/deliveryPackages";
+import {
   buildMaintenanceReport,
   cleanupTempFiles,
   getDataSafetySummary,
@@ -538,6 +544,16 @@ function App() {
   const [exportResult, setExportResult] = React.useState<ExportExcelResult | null>(null);
   const [exportRecords, setExportRecords] = React.useState<ExportRecord[]>([]);
   const [exportError, setExportError] = React.useState("");
+  const [deliveryOptions, setDeliveryOptions] = React.useState<DeliveryPackageRequest>({
+    include_latest_excel: true,
+    include_cad_previews: true,
+    include_pdf_previews: true,
+    include_original_files: false
+  });
+  const [deliveryResult, setDeliveryResult] = React.useState<DeliveryPackageResult | null>(null);
+  const [deliveryBusy, setDeliveryBusy] = React.useState(false);
+  const [deliveryDownloadBusy, setDeliveryDownloadBusy] = React.useState(false);
+  const [deliveryError, setDeliveryError] = React.useState("");
   const [backupResult, setBackupResult] = React.useState<ProjectBackupResult | null>(null);
   const [backupRecords, setBackupRecords] = React.useState<BackupRecord[]>([]);
   const [backupError, setBackupError] = React.useState("");
@@ -1809,6 +1825,37 @@ function App() {
         listExports(selectedProject.id).then(setExportRecords);
       })
       .catch((error) => setExportError(formatApiError(error, "导出失败：项目无图纸、导出目录不可写或 Excel 文件写入失败")));
+  };
+
+  const updateDeliveryOption = (key: keyof DeliveryPackageRequest, value: boolean) => {
+    setDeliveryOptions((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleCreateDeliveryPackage = () => {
+    if (!selectedProject) {
+      return;
+    }
+    setDeliveryBusy(true);
+    createDeliveryPackage(selectedProject.id, deliveryOptions)
+      .then((result) => {
+        setDeliveryResult(result);
+        setDeliveryError("");
+        listExports(selectedProject.id).then(setExportRecords);
+        loadWorkbenchSummary(selectedProject.id);
+      })
+      .catch((error) => setDeliveryError(formatApiError(error, "项目交付包生成失败，请确认项目已有图纸并可导出 Excel")))
+      .finally(() => setDeliveryBusy(false));
+  };
+
+  const handleDownloadDeliveryPackage = () => {
+    if (!deliveryResult) {
+      return;
+    }
+    setDeliveryDownloadBusy(true);
+    downloadDeliveryPackage(deliveryResult.download_url, deliveryResult.file_name)
+      .then(() => setDeliveryError(""))
+      .catch((error) => setDeliveryError(formatApiError(error, "项目交付包下载失败，请确认交付包文件仍存在")))
+      .finally(() => setDeliveryDownloadBusy(false));
   };
 
   const handleCreateBackup = () => {
@@ -4354,6 +4401,79 @@ function App() {
                     </div>
                   </div>
                 ) : null}
+                <div className="delivery-panel">
+                  <div className="section-title">
+                    <h3>项目交付包</h3>
+                    <span>成果移交 / 归档 zip</span>
+                  </div>
+                  <p>
+                    交付包用于成果移交，不用于恢复系统数据。如需恢复项目，请使用项目备份。没有可用 Excel 时，系统会为本次交付包自动生成一份台账。
+                  </p>
+                  <div className="delivery-options">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={deliveryOptions.include_latest_excel}
+                        onChange={(event) => updateDeliveryOption("include_latest_excel", event.target.checked)}
+                      />
+                      包含最新 Excel 台账
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={deliveryOptions.include_cad_previews}
+                        onChange={(event) => updateDeliveryOption("include_cad_previews", event.target.checked)}
+                      />
+                      包含 CAD 预览图
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={deliveryOptions.include_pdf_previews}
+                        onChange={(event) => updateDeliveryOption("include_pdf_previews", event.target.checked)}
+                      />
+                      包含 PDF 预览图
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={deliveryOptions.include_original_files}
+                        onChange={(event) => updateDeliveryOption("include_original_files", event.target.checked)}
+                      />
+                      包含原始图纸文件
+                    </label>
+                  </div>
+                  {deliveryOptions.include_original_files ? (
+                    <p className="delivery-warning">包含原始 PDF / DXF / DWG 会让交付包明显变大，仅在确需移交源文件时勾选。</p>
+                  ) : (
+                    <p className="delivery-hint">默认不包含原始图纸文件，可减少交付包体积；交付包仍会包含 Excel、项目摘要和问题清单摘要。</p>
+                  )}
+                  <ErrorNotice message={deliveryError} />
+                  <div className="inline-actions">
+                    <button type="button" onClick={handleCreateDeliveryPackage} disabled={!canExportProject || deliveryBusy}>
+                      {deliveryBusy ? "正在生成..." : "导出项目交付包"}
+                    </button>
+                  </div>
+                  {deliveryResult ? (
+                    <div className="success-message export-success">
+                      <strong>项目交付包已生成</strong>
+                      <span>文件名：{deliveryResult.file_name}</span>
+                      <span>文件大小：{formatFileSize(deliveryResult.file_size)}</span>
+                      {deliveryResult.warnings.length > 0 ? (
+                        <ul>
+                          {deliveryResult.warnings.map((warning) => (
+                            <li key={warning}>{warning}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      <div className="inline-actions">
+                        <button type="button" onClick={handleDownloadDeliveryPackage} disabled={deliveryDownloadBusy}>
+                          {deliveryDownloadBusy ? "正在下载..." : "下载交付包"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
                 <div className="sheet-list">
                   <div className="section-title">
                     <h3>导出历史</h3>

@@ -21,7 +21,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_v11_fast_ux import export_excel
 
 
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 
 
 def test_v121_version_is_unified_across_backend_frontend_and_package_script():

@@ -9,6 +9,7 @@ from backend.api.cad_pipeline import router as cad_pipeline_router
 from backend.api.backups import router as backups_router
 from backend.api.candidates import router as candidates_router
 from backend.api.data_health import router as data_health_router
+from backend.api.delivery_packages import router as delivery_packages_router
 from backend.api.exports import router as exports_router
 from backend.api.fusion import router as fusion_router
 from backend.api.health import router as health_router
@@ -55,6 +56,7 @@ app.include_router(health_router)
 app.include_router(projects_router)
 app.include_router(backups_router)
 app.include_router(data_health_router)
+app.include_router(delivery_packages_router)
 app.include_router(imports_router)
 app.include_router(sheets_router)
 app.include_router(cad_router)

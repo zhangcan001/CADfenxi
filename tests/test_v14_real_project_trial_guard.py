@@ -28,7 +28,7 @@ from test_project_backup_restore import backup_project, create_project, upload_f
 from test_v11_fast_ux import export_excel
 
 
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 
 
 def _count(model: type, project_id: int) -> int:

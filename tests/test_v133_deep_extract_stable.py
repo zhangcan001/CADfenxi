@@ -30,7 +30,7 @@ from test_v13_deep_extract_review import (
 )
 
 
-VERSION = "v1.4-fast-real-project-trial"
+VERSION = "v1.5.1-fast-delivery-package-fix"
 
 
 def test_v133_health_version():
